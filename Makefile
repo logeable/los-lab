@@ -24,7 +24,7 @@ gdb: ${KERNEL_BIN}
 	${QEMU} ${qemu_opts} -s -S &
 	@sleep 1
 	riscv64-elf-gdb \
-		-ex 'file ${FULL_KERNEL_BIN}' \
+		-ex 'file ${FULL_KERNEL}' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote 127.0.0.1:1234' \
 		-ex 'b *${KERNEL_BASE_ADDRESS}'
@@ -33,7 +33,7 @@ gdb: ${KERNEL_BIN}
 
 ${KERNEL}:
 	cargo build --release
-	
+
 ${KERNEL_BIN}: ${KERNEL}
 	${BINTOOLS_PREFIX}objcopy --strip-all ${FULL_KERNEL} -O binary  ${FULL_KERNEL_BIN}
 

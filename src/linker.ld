@@ -32,13 +32,15 @@ SECTIONS
     edata = .;
 
     .bss : {
+        sbtstack = .;
         *(.bss.stack)
+        ebtstack = .;
         sbss = .;
         *(.bss .bss.*)
         *(.sbss .sbss.*)
     }
     . = ALIGN(4K);
-    .ebss = .;
+    ebss = .;
 
     ekernel = .;
 
