@@ -1,11 +1,25 @@
 #![no_std]
 #![no_main]
-use core::{arch::global_asm, include_str, panic::PanicInfo};
+mod console;
+mod sbi;
+
+use ansi_rgb::cyan_blue;
+use ansi_rgb::{red, Foreground};
+use core::{arch::global_asm, panic::PanicInfo};
 
 global_asm!(include_str!("entry.asm"));
 
 #[no_mangle]
 fn rust_main() {
+    clear_bss();
+    print_kernel_info();
+
+    loop {
+        core::hint::spin_loop();
+    }
+}
+
+fn print_kernel_info() {
     extern "C" {
         fn skernel();
         fn stext();
@@ -21,9 +35,19 @@ fn rust_main() {
         fn ekernel();
     }
 
-    clear_bss();
+    fn color_print(name: &str, start: usize, end: usize) {
+        println!(
+            "{}",
+            format_args!("{:10}: [{:#x}..{:#x}]", name, start, end,).fg(cyan_blue())
+        );
+    }
 
-    loop {}
+    color_print("kernel", skernel as usize, ekernel as usize);
+    color_print(".text", stext as usize, etext as usize);
+    color_print(".rodata", srodata as usize, erodata as usize);
+    color_print(".data", sdata as usize, edata as usize);
+    color_print(".btstack", sbtstack as usize, ebtstack as usize);
+    color_print(".bss", sbss as usize, ebss as usize);
 }
 
 fn clear_bss() {
@@ -38,6 +62,8 @@ fn clear_bss() {
 }
 
 #[panic_handler]
-fn panic_handler(_panic_info: &PanicInfo) -> ! {
-    loop {}
+fn panic_handler(panic_info: &PanicInfo) -> ! {
+    println!("{}", panic_info.fg(red()));
+
+    sbi::shutdown(true);
 }
