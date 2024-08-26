@@ -1,8 +1,8 @@
 BINTOOLS_PREFIX = riscv64-unknown-elf-
-RUSTSBI_QEMU = target/rustsbi-qemu.bin
+RUSTSBI_QEMU = ../target/rustsbi-qemu.bin
 KERNEL = los
 KERNEL_BIN = ${KERNEL}.bin
-TARGET_DIR = target/riscv64gc-unknown-none-elf/release/
+TARGET_DIR = ../target/riscv64gc-unknown-none-elf/release/
 FULL_KERNEL = ${TARGET_DIR}${KERNEL}
 FULL_KERNEL_BIN = ${TARGET_DIR}${KERNEL_BIN}
 

@@ -8,6 +8,7 @@ use ansi_rgb::{red, Foreground};
 use core::{arch::global_asm, panic::PanicInfo};
 
 global_asm!(include_str!("entry.asm"));
+global_asm!(include_str!("app.asm"));
 
 #[no_mangle]
 fn rust_main() {

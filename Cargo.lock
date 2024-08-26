@@ -26,6 +26,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "los-user"
+version = "0.1.0"
+
+[[package]]
 name = "rgb"
 version = "0.8.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -48,3 +52,7 @@ name = "sbi-spec"
 version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e36312fb5ddc10d08ecdc65187402baba4ac34585cb9d1b78522ae2358d890"
+
+[[package]]
+name = "xtask"
+version = "0.1.0"
