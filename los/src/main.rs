@@ -1,19 +1,30 @@
 #![no_std]
 #![no_main]
+mod batch;
 mod console;
 mod sbi;
 
 use ansi_rgb::cyan_blue;
 use ansi_rgb::{red, Foreground};
+use core::slice;
 use core::{arch::global_asm, panic::PanicInfo};
+use pretty_hex::PrettyHex;
 
 global_asm!(include_str!("entry.asm"));
-global_asm!(include_str!("app.asm"));
+global_asm!(include_str!(
+    "../../target/riscv64gc-unknown-none-elf/release/app.asm"
+));
 
 #[no_mangle]
 fn rust_main() {
     clear_bss();
     print_kernel_info();
+
+    let app_loader = batch::AppLoader::new();
+    println!("app numbers: {}", app_loader.app_number());
+    for i in 0..app_loader.app_number() {
+        println!("loading app {}: {:?}", i, app_loader.load_app(i as usize));
+    }
 
     loop {
         core::hint::spin_loop();

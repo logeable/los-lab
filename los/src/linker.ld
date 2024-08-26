@@ -18,7 +18,6 @@ SECTIONS
     srodata = .;
     .rodata : {
         *(.rodata .rodata.*)
-        *(.srodata .srodata.*)
     }    
     . = ALIGN(4K);
     erodata = .;
@@ -26,7 +25,6 @@ SECTIONS
     sdata = .;
     .data : {
         *(.data .data.*)
-        *(.sdata .sdata.*)        
     }
     . = ALIGN(4K);
     edata = .;
@@ -37,7 +35,6 @@ SECTIONS
         ebtstack = .;
         sbss = .;
         *(.bss .bss.*)
-        *(.sbss .sbss.*)
     }
     . = ALIGN(4K);
     ebss = .;

@@ -10,4 +10,3 @@ _start:
 boot_stack_lower_bound:
     .space 4096 * 16
 boot_stack_top:
-
