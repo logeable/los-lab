@@ -1,7 +1,11 @@
+use ansi_rgb::{yellow, yellow_green, Foreground};
 use core::arch::global_asm;
-use riscv::register::{scause, sstatus, stval, stvec};
+use riscv::register::{scause, sepc, sstatus, stval, stvec};
 
-use crate::syscall;
+use crate::{
+    batch::{run_next_app, APP_LOADER},
+    println, syscall,
+};
 
 global_asm!(include_str!("trap.asm"));
 
@@ -18,7 +22,7 @@ pub fn init() {
 #[no_mangle]
 pub fn process_trap(ctx: &mut TrapContext) -> &mut TrapContext {
     let scause = scause::read();
-    let _stval = stval::read();
+    let stval = stval::read();
 
     match scause.cause() {
         scause::Trap::Interrupt(intr) => match intr {
@@ -36,7 +40,13 @@ pub fn process_trap(ctx: &mut TrapContext) -> &mut TrapContext {
         scause::Trap::Exception(ex) => match ex {
             scause::Exception::InstructionMisaligned => todo!(),
             scause::Exception::InstructionFault => todo!(),
-            scause::Exception::IllegalInstruction => todo!(),
+            scause::Exception::IllegalInstruction => {
+                println!(
+                    "{}",
+                    format_args!("[TRAP] illegal instruction: {:x}", stval).fg(yellow())
+                );
+                run_next_app();
+            }
             scause::Exception::Breakpoint => todo!(),
             scause::Exception::LoadFault => todo!(),
             scause::Exception::StoreMisaligned => todo!(),

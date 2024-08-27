@@ -1,4 +1,4 @@
-use ansi_rgb::{green, yellow, Foreground};
+use ansi_rgb::{green, orange, yellow, Foreground};
 use core::{
     arch::asm,
     ffi::{c_char, CStr},
@@ -105,7 +105,7 @@ pub fn run_next_app() -> ! {
         let app_info = loader.app_info(loader.next_app);
         println!(
             "{}",
-            format_args!("[BATCH] run {} app: {}", loader.next_app, app_info.name).fg(yellow())
+            format_args!("[BATCH] run {} app: {}", loader.next_app, app_info.name).fg(orange())
         );
         loader.move_next_app();
     }
