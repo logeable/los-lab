@@ -2,13 +2,15 @@
 #![no_main]
 mod batch;
 mod console;
+mod error;
 mod sbi;
+mod syscall;
+mod trap;
 
 use ansi_rgb::cyan_blue;
 use ansi_rgb::{red, Foreground};
-use core::slice;
+use batch::APP_LOADER;
 use core::{arch::global_asm, panic::PanicInfo};
-use pretty_hex::PrettyHex;
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!(
@@ -20,11 +22,17 @@ fn rust_main() {
     clear_bss();
     print_kernel_info();
 
-    let app_loader = batch::AppLoader::new();
-    println!("app numbers: {}", app_loader.app_number());
-    for i in 0..app_loader.app_number() {
-        println!("loading app {}: {:?}", i, app_loader.load_app(i as usize));
+    trap::init();
+
+    {
+        let mut app_loader = APP_LOADER.lock();
+        println!("app numbers: {}", app_loader.app_number());
+        for i in 0..app_loader.app_number() {
+            println!("loading app {}: {:?}", i, app_loader.app_info(i as usize));
+        }
     }
+
+    batch::run_next_app();
 
     loop {
         core::hint::spin_loop();
