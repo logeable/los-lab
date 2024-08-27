@@ -1,9 +1,9 @@
-use std::{path::PathBuf, process::Command};
+use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use regex::Regex;
-use xtask::{app, get_bin_targets, get_targets, get_workspace_folder, objcopy_to_bin};
+use xtask::{app, get_bin_targets, get_workspace_folder, objcopy_to_bin};
 
 #[derive(Parser)]
 #[command(version, about)]

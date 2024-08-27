@@ -96,7 +96,9 @@ pub fn run_next_app() -> ! {
         let mut loader = APP_LOADER.lock();
         if loader.next_app == loader.app_number {
             println!("{}", "[BATCH] completed".fg(green()));
-            loop {}
+            loop {
+                core::hint::spin_loop();
+            }
         }
 
         loader.load_app(loader.next_app);

@@ -25,7 +25,7 @@ fn rust_main() {
     trap::init();
 
     {
-        let mut app_loader = APP_LOADER.lock();
+        let app_loader = APP_LOADER.lock();
         println!("app numbers: {}", app_loader.app_number());
         for i in 0..app_loader.app_number() {
             println!("loading app {}: {:?}", i, app_loader.app_info(i as usize));
@@ -33,10 +33,6 @@ fn rust_main() {
     }
 
     batch::run_next_app();
-
-    loop {
-        core::hint::spin_loop();
-    }
 }
 
 fn print_kernel_info() {

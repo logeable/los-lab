@@ -1,4 +1,4 @@
-use crate::{print, sbi};
+use crate::sbi;
 use core::slice;
 
 const STDOUT: usize = 1;

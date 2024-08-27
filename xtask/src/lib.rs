@@ -40,7 +40,7 @@ pub struct Target {
 
 pub fn get_targets(crate_name: &str) -> anyhow::Result<Vec<Target>> {
     let workspace = get_workspace_folder();
-    let mut manifest_path = PathBuf::new()
+    let manifest_path = PathBuf::new()
         .join(workspace)
         .join(crate_name)
         .join("Cargo.toml");

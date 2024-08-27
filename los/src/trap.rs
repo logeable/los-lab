@@ -1,5 +1,5 @@
 use core::arch::global_asm;
-use riscv::register::{mcause::Trap, scause, sstatus, stval, stvec};
+use riscv::register::{scause, sstatus, stval, stvec};
 
 use crate::syscall;
 
@@ -87,10 +87,10 @@ impl TrapContext {
 
 pub fn return_to_user(ctx_ptr: *const TrapContext) -> ! {
     extern "C" {
-        fn s_trap_return(ctx_ptr: *const TrapContext) -> !;
+        fn s_trap_return(ctx_ptr: usize) -> !;
     }
 
     unsafe {
-        s_trap_return(ctx_ptr);
+        s_trap_return(ctx_ptr as usize);
     }
 }
