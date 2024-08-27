@@ -12,8 +12,8 @@ use crate::{
 };
 
 const APP_BASE_ADDRESS: usize = 0x80400000;
-const USER_STACK_SIZE: usize = 4096 * 20;
-const KERNEL_STACK_SIZE: usize = 4096 * 20;
+const USER_STACK_SIZE: usize = 4096 * 2;
+const KERNEL_STACK_SIZE: usize = 4096 * 2;
 
 lazy_static! {
     pub static ref APP_LOADER: spin::Mutex<AppLoader> = {
