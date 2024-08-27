@@ -5,6 +5,7 @@ use core::{
     mem, slice,
 };
 use lazy_static::lazy_static;
+use riscv::register::{time, timeh};
 
 use crate::{
     println,
@@ -34,6 +35,8 @@ static USER_STACK: UserStack = UserStack {
 pub struct AppLoader {
     app_number: usize,
     next_app: usize,
+    start_time: usize,
+    end_time: usize,
 }
 
 impl AppLoader {
@@ -47,6 +50,8 @@ impl AppLoader {
         AppLoader {
             app_number,
             next_app: 0,
+            start_time: 0,
+            end_time: 0,
         }
     }
 
@@ -89,6 +94,18 @@ impl AppLoader {
     pub fn move_next_app(&mut self) {
         self.next_app += 1;
     }
+
+    pub fn update_start_time(&mut self) {
+        self.start_time = time::read();
+    }
+
+    pub fn update_end_time(&mut self) {
+        self.end_time = time::read();
+    }
+
+    pub fn get_app_duration(&self) -> usize {
+        return self.end_time - self.start_time;
+    }
 }
 
 pub fn run_next_app() -> ! {
@@ -101,6 +118,7 @@ pub fn run_next_app() -> ! {
             }
         }
 
+        loader.update_start_time();
         loader.load_app(loader.next_app);
         let app_info = loader.app_info(loader.next_app);
         println!(
