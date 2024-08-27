@@ -129,7 +129,7 @@ struct KernelStack {
 
 impl KernelStack {
     fn get_sp(&self) -> usize {
-        self.data.as_ptr() as usize + KERNEL_STACK_SIZE - 1
+        self.data.as_ptr() as usize + KERNEL_STACK_SIZE
     }
 
     fn push_trap_context(&self, ctx: TrapContext) -> *mut TrapContext {
@@ -147,6 +147,6 @@ struct UserStack {
 
 impl UserStack {
     fn get_sp(&self) -> usize {
-        self.data.as_ptr() as usize + USER_STACK_SIZE - 1
+        self.data.as_ptr() as usize + USER_STACK_SIZE
     }
 }
