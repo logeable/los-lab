@@ -68,11 +68,13 @@ pub fn get_targets(crate_name: &str) -> anyhow::Result<Vec<Target>> {
 }
 
 pub fn get_bin_targets(crate_name: &str) -> anyhow::Result<Vec<String>> {
-    Ok(get_targets(crate_name)?
+    let mut targets: Vec<_> = get_targets(crate_name)?
         .iter()
         .filter(|v| v.kind == TargetKind::Bin)
         .map(|v| v.name.clone())
-        .collect())
+        .collect();
+    targets.sort();
+    Ok(targets)
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]

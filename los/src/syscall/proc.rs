@@ -1,4 +1,4 @@
-use ansi_rgb::{orange, white, Foreground};
+use ansi_rgb::{white, Foreground};
 
 use crate::{
     batch::{run_next_app, APP_LOADER},

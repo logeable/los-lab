@@ -1,11 +1,7 @@
-use ansi_rgb::{yellow, yellow_green, Foreground};
+use crate::{batch::run_next_app, println, syscall};
+use ansi_rgb::{yellow, Foreground};
 use core::arch::global_asm;
-use riscv::register::{scause, sepc, sstatus, stval, stvec};
-
-use crate::{
-    batch::{run_next_app, APP_LOADER},
-    println, syscall,
-};
+use riscv::register::{scause, sstatus, stval, stvec};
 
 global_asm!(include_str!("trap.asm"));
 

@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::{fs::File, io::Write, path::PathBuf, process::Command};
 
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
+use minijinja::{context, Environment};
 use regex::Regex;
 use xtask::{app, get_bin_targets, get_workspace_folder, objcopy_to_bin};
 
@@ -21,6 +22,7 @@ enum Commands {
 #[derive(Subcommand)]
 enum AppCommands {
     Asm,
+    Build,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -67,6 +69,45 @@ fn main() -> anyhow::Result<()> {
 
                 println!("bins: {:?}", bins);
                 app::gen_app_asm(bins, dest).context("gen app asm failed")?;
+            }
+            AppCommands::Build => {
+                let targets = get_bin_targets("los-user").context("get bin targets failed")?;
+
+                let mut env = Environment::new();
+                env.add_template("linker.ld", include_str!("linker.ld.tmpl"))
+                    .context("add template failed")?;
+                let tmpl = env.get_template("linker.ld").unwrap();
+
+                let base_address = 0x80400000;
+                let step = 0x20000;
+
+                let los_user_dir = PathBuf::from(get_workspace_folder()).join("los-user");
+                let linker_ld_script_path = los_user_dir.join("src").join("linker.ld");
+                for (i, target) in targets.iter().enumerate() {
+                    let address = format!("{:#x}", base_address + step * i);
+                    let content = tmpl.render(context!(address)).unwrap();
+
+                    File::create(&linker_ld_script_path)
+                        .unwrap()
+                        .write_all(content.as_bytes())
+                        .unwrap();
+                    let output = Command::new("cargo")
+                        .arg("build")
+                        .arg("--release")
+                        .arg("--bin")
+                        .arg(target)
+                        .current_dir(&los_user_dir)
+                        .output()
+                        .unwrap();
+                    if !output.status.success() {
+                        panic!(
+                            "build {} failed: {}",
+                            target,
+                            String::from_utf8(output.stderr).unwrap()
+                        );
+                    }
+                    println!("build {} done", target);
+                }
             }
         },
     }

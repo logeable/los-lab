@@ -28,7 +28,11 @@ fn rust_main() {
         let app_loader = APP_LOADER.lock();
         println!("app numbers: {}", app_loader.app_number());
         for i in 0..app_loader.app_number() {
-            println!("loading app {}: {:?}", i, app_loader.app_info(i as usize));
+            println!(
+                "loading app {}: {:?}",
+                i,
+                app_loader.get_app_info(i as usize)
+            );
         }
     }
 

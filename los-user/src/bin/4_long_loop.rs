@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use los_user::{self, println};
+use los_user;
 
 #[no_mangle]
 fn main() -> i32 {

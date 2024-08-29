@@ -1,11 +1,11 @@
-use ansi_rgb::{green, orange, yellow, Foreground};
+use ansi_rgb::{green, orange, Foreground};
 use core::{
     arch::asm,
     ffi::{c_char, CStr},
     mem, slice,
 };
 use lazy_static::lazy_static;
-use riscv::register::{time, timeh};
+use riscv::register::time;
 
 use crate::{
     println,
@@ -15,6 +15,7 @@ use crate::{
 const APP_BASE_ADDRESS: usize = 0x80400000;
 const USER_STACK_SIZE: usize = 4096 * 2;
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
+const MAX_APPS: usize = 100;
 
 lazy_static! {
     pub static ref APP_LOADER: spin::Mutex<AppLoader> = {
@@ -37,6 +38,7 @@ pub struct AppLoader {
     next_app: usize,
     start_time: usize,
     end_time: usize,
+    apps: [Option<AppInfo>; MAX_APPS],
 }
 
 impl AppLoader {
@@ -47,31 +49,53 @@ impl AppLoader {
 
         let app_number = unsafe { *(app_data as *const usize) };
 
+        let mut apps = [None; MAX_APPS];
+        for i in 0..app_number {
+            let app_info = Self::app_info(i);
+            apps[i] = Some(app_info);
+            Self::load_app(&app_info);
+        }
+
         AppLoader {
             app_number,
             next_app: 0,
             start_time: 0,
             end_time: 0,
+            apps,
         }
     }
 
-    pub fn app_info(&self, idx: usize) -> AppInfo {
+    pub fn get_app_info(&self, idx: usize) -> Option<&AppInfo> {
+        self.apps.get(idx).and_then(|v| v.as_ref())
+    }
+
+    fn app_info(idx: usize) -> AppInfo {
         extern "C" {
             fn app_data();
         }
 
-        let app_info_addr = unsafe { (app_data as *const u64).add(1 + idx * 3) };
-        let start = unsafe { *app_info_addr } as usize;
-        let end_addr = unsafe { app_info_addr.add(1) };
-        let end = unsafe { *end_addr } as usize;
-        let name_addr = unsafe { *end_addr.add(1) };
+        #[derive(Clone, Copy)]
+        struct AppData {
+            start: usize,
+            end: usize,
+            name_ptr: usize,
+            entry_ptr: usize,
+        }
 
-        let name = unsafe { CStr::from_ptr(name_addr as *const c_char) };
+        let addr = app_data as usize as *const u64;
+        let app_data = unsafe { *(addr.add(1).add(idx * 4) as *const AppData) };
+
+        let name = unsafe { CStr::from_ptr(app_data.name_ptr as *const c_char) }
+            .to_str()
+            .unwrap();
+
+        let entry = unsafe { *(app_data.entry_ptr as *const u64) } as usize;
 
         AppInfo {
-            start_addr: start,
-            length: end - start,
-            name: name.to_str().unwrap_or("unknown"),
+            start_addr: app_data.start,
+            length: app_data.end - app_data.start,
+            name,
+            entry,
         }
     }
 
@@ -79,16 +103,11 @@ impl AppLoader {
         self.app_number
     }
 
-    pub fn load_app(&self, idx: usize) {
-        let app_info = self.app_info(idx);
-
-        let dest =
-            unsafe { slice::from_raw_parts_mut(APP_BASE_ADDRESS as *mut u8, app_info.length) };
+    fn load_app(app_info: &AppInfo) {
+        let dest = unsafe { slice::from_raw_parts_mut(app_info.entry as *mut u8, app_info.length) };
         let src = unsafe { slice::from_raw_parts(app_info.start_addr as *mut u8, app_info.length) };
 
         dest.copy_from_slice(src);
-
-        unsafe { asm!("fence.i") };
     }
 
     pub fn move_next_app(&mut self) {
@@ -109,35 +128,43 @@ impl AppLoader {
 }
 
 pub fn run_next_app() -> ! {
-    {
+    let ctx_ptr = {
         let mut loader = APP_LOADER.lock();
-        if loader.next_app == loader.app_number {
-            println!("{}", "[BATCH] completed".fg(green()));
-            loop {
-                core::hint::spin_loop();
-            }
-        }
 
         loader.update_start_time();
-        loader.load_app(loader.next_app);
-        let app_info = loader.app_info(loader.next_app);
-        println!(
-            "{}",
-            format_args!("[BATCH] run {} app: {}", loader.next_app, app_info.name).fg(orange())
-        );
-        loader.move_next_app();
-    }
+        match loader.get_app_info(loader.next_app) {
+            Some(app_info) => {
+                println!(
+                    "{}",
+                    format_args!(
+                        "[BATCH] run {} app: {}({:#x})",
+                        loader.next_app, app_info.name, app_info.entry
+                    )
+                    .fg(orange())
+                );
 
-    let ctx = TrapContext::init(APP_BASE_ADDRESS, USER_STACK.get_sp());
-    let ctx_ptr = KERNEL_STACK.push_trap_context(ctx);
+                let ctx = TrapContext::init(app_info.entry, USER_STACK.get_sp());
+                loader.move_next_app();
+                KERNEL_STACK.push_trap_context(ctx)
+            }
+            None => {
+                println!("{}", "[BATCH] completed".fg(green()));
+                loop {
+                    core::hint::spin_loop();
+                }
+            }
+        }
+    };
+
     trap::return_to_user(ctx_ptr)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct AppInfo {
     pub start_addr: usize,
     pub length: usize,
     pub name: &'static str,
+    pub entry: usize,
 }
 
 #[repr(align(4096))]
