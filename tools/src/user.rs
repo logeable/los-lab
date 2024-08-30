@@ -8,8 +8,8 @@ use std::{fs::File, io::Write, path::PathBuf, process::Command};
 const BASE_ADDRESS: usize = 0x80400000;
 const APP_MAX_SIZE: usize = 0x20000;
 
-pub fn build(asm_args: &BuildArgs) -> anyhow::Result<()> {
-    let user_path = &asm_args.user_args.user_crate_dir;
+pub fn build(build_args: &BuildArgs) -> anyhow::Result<()> {
+    let user_path = &build_args.user_args.user_crate_dir;
 
     let targets = get_bin_targets(user_path).context("get bin targets failed")?;
 
@@ -29,11 +29,13 @@ pub fn build(asm_args: &BuildArgs) -> anyhow::Result<()> {
             .unwrap()
             .write_all(content.as_bytes())
             .context("write linker.ld failed")?;
-        let output = Command::new("cargo")
-            .arg("build")
-            .arg("--release")
-            .arg("--bin")
-            .arg(target)
+
+        let mut cmd = Command::new("cargo");
+        let cmd = cmd.arg("build").arg("--bin").arg(target);
+        if build_args.user_args.release {
+            cmd.arg("--release");
+        }
+        let output = cmd
             .current_dir(&user_path)
             .output()
             .context("build failed")?;
@@ -53,12 +55,18 @@ pub fn build(asm_args: &BuildArgs) -> anyhow::Result<()> {
 pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
     let user_path = &asm_args.user_args.user_crate_dir;
 
+    let profile = if asm_args.user_args.release {
+        "release"
+    } else {
+        "debug"
+    };
+
     let targets = get_bin_targets(user_path).context("get bin targets failed")?;
     let bin_dir = PathBuf::new()
         .join(user_path)
         .join("target")
         .join("riscv64gc-unknown-none-elf")
-        .join("release");
+        .join(profile);
 
     let bin_name_regex = Regex::new(r"^\d+_.*").unwrap();
     let mut bins = Vec::new();

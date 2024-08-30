@@ -38,6 +38,8 @@ struct BuildArgs {
 #[derive(Args)]
 struct UserArgs {
     user_crate_dir: String,
+    #[arg(long)]
+    release: bool,
 }
 
 fn main() -> anyhow::Result<()> {
