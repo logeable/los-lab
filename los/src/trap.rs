@@ -16,7 +16,7 @@ pub fn init() {
 }
 
 #[no_mangle]
-pub fn process_trap(ctx: &mut TrapContext) -> &mut TrapContext {
+pub fn process_trap(ctx: &mut TrapContext) {
     let scause = scause::read();
     let stval = stval::read();
 
@@ -64,7 +64,7 @@ pub fn process_trap(ctx: &mut TrapContext) -> &mut TrapContext {
         },
     }
 
-    ctx
+    return_to_user(ctx)
 }
 
 #[repr(C)]

@@ -77,7 +77,7 @@ impl AppLoader {
             start: usize,
             end: usize,
             name_ptr: usize,
-            entry_ptr: usize,
+            entry: usize,
         }
 
         let addr = app_data as usize as *const u64;
@@ -87,13 +87,11 @@ impl AppLoader {
             .to_str()
             .unwrap();
 
-        let entry = unsafe { *(app_data.entry_ptr as *const u64) } as usize;
-
         AppInfo {
             start_addr: app_data.start,
             length: app_data.end - app_data.start,
             name,
-            entry,
+            entry: app_data.entry,
         }
     }
 
