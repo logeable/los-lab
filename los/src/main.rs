@@ -13,9 +13,7 @@ use batch::APP_LOADER;
 use core::{arch::global_asm, panic::PanicInfo};
 
 global_asm!(include_str!("entry.asm"));
-global_asm!(include_str!(
-    "../../target/riscv64gc-unknown-none-elf/release/app.asm"
-));
+global_asm!(include_str!("app.asm"));
 
 #[no_mangle]
 fn rust_main() {

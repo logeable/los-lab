@@ -3,7 +3,7 @@
 
 use core::arch::asm;
 
-use los_user::{self, println};
+use user::{self, println};
 
 #[no_mangle]
 fn main() -> i32 {

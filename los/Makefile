@@ -1,14 +1,21 @@
-BINTOOLS_PREFIX = riscv64-unknown-elf-
 RUSTSBI_QEMU ?= ../target/rustsbi-qemu.bin
+BUILD_MODE ?= release
+
+TARGET = riscv64gc-unknown-none-elf
+BINTOOLS_PREFIX = riscv64-unknown-elf-
 KERNEL = los
 KERNEL_BIN = ${KERNEL}.bin
-TARGET_DIR = ../target/riscv64gc-unknown-none-elf/release/
+TARGET_DIR = target/${TARGET}/${BUILD_MODE}/
 FULL_KERNEL = ${TARGET_DIR}${KERNEL}
 FULL_KERNEL_BIN = ${TARGET_DIR}${KERNEL_BIN}
 
 QEMU = qemu-system-riscv64
 KERNEL_BASE_ADDRESS = 0x80200000
 SMP = 4
+
+ifeq ($(BUILD_MODE), release)
+	build_args += --release
+endif
 
 qemu_opts = \
 	-machine virt \
@@ -32,7 +39,7 @@ gdb: ${KERNEL_BIN}
 
 
 ${KERNEL}:
-	cargo build --release
+	cargo build ${build_args}
 
 ${KERNEL_BIN}: ${KERNEL}
 	${BINTOOLS_PREFIX}objcopy --strip-all ${FULL_KERNEL} -O binary  ${FULL_KERNEL_BIN}

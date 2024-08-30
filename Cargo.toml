@@ -1,7 +1,0 @@
-[workspace]
-members = ["los", "los-user", "xtask"]
-resolver = "2"
-
-[profile.release]
-debug = true
-opt-level = 0
