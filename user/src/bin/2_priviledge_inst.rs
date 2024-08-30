@@ -2,10 +2,10 @@
 #![no_main]
 
 use core::arch::asm;
+use user::{self, entry};
 
-use user;
+entry!(main);
 
-#[no_mangle]
 fn main() -> i32 {
     unsafe {
         asm!("csrr t0, sstatus");

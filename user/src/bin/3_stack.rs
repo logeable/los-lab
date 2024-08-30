@@ -3,9 +3,10 @@
 
 use core::arch::asm;
 
-use user::{self, println};
+use user::{self, entry, println};
 
-#[no_mangle]
+entry!(main);
+
 fn main() -> i32 {
     foo();
 

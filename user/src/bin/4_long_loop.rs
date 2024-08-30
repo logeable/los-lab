@@ -1,9 +1,10 @@
 #![no_std]
 #![no_main]
 
-use user;
+use user::entry;
 
-#[no_mangle]
+entry!(main);
+
 fn main() -> i32 {
     let mut sum = 0;
     while sum < i32::MAX {
