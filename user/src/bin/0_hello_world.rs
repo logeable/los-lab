@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use user::{self, entry, println};
+use user_rt::{entry, println};
 
 entry!(main);
 

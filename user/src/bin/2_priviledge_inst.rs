@@ -2,7 +2,7 @@
 #![no_main]
 
 use core::arch::asm;
-use user::{self, entry};
+use user_rt::{self, entry};
 
 entry!(main);
 

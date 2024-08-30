@@ -3,7 +3,7 @@
 
 use core::arch::asm;
 
-use user::{self, entry, println};
+use user_rt::{self, entry, println};
 
 entry!(main);
 
