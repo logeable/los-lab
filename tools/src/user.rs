@@ -1,14 +1,12 @@
-use anyhow::{bail, Context};
-use minijinja::{context, Environment};
-use regex::Regex;
-use std::{
-    fs::File,
-    io::{BufWriter, Write},
-    path::{Path, PathBuf},
-    process::Command,
-};
-
 use crate::{AsmArgs, BuildArgs};
+use anyhow::{bail, Context};
+use minijinja::{context, Environment, UndefinedBehavior};
+use regex::Regex;
+use serde::Serialize;
+use std::{fs::File, io::Write, path::PathBuf, process::Command};
+
+const BASE_ADDRESS: usize = 0x80400000;
+const APP_MAX_SIZE: usize = 0x20000;
 
 pub fn build(asm_args: &BuildArgs) -> anyhow::Result<()> {
     let user_path = &asm_args.user_args.user_crate_dir;
@@ -16,17 +14,15 @@ pub fn build(asm_args: &BuildArgs) -> anyhow::Result<()> {
     let targets = get_bin_targets(user_path).context("get bin targets failed")?;
 
     let mut env = Environment::new();
+    env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.add_template("linker.ld", include_str!("linker.ld.tmpl"))
         .context("add template failed")?;
     let tmpl = env.get_template("linker.ld").unwrap();
 
-    let base_address = 0x80400000;
-    let step = 0x20000;
-
     let user_path = PathBuf::from(user_path);
     let linker_ld_script_path = user_path.join("src").join("linker.ld");
     for (i, target) in targets.iter().enumerate() {
-        let address = format!("{:#x}", base_address + step * i);
+        let address = format!("{:#x}", BASE_ADDRESS + APP_MAX_SIZE * i);
         let content = tmpl.render(context!(address)).context("render failed")?;
 
         File::create(&linker_ld_script_path)
@@ -88,7 +84,7 @@ pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
         .map(|p| p.to_str().unwrap().to_string())
         .collect();
 
-    gen_app_asm(bins, &asm_args.app_asm_path).context("gen app asm failed")?;
+    gen_app_asm2(bins, &asm_args.app_asm_path).context("gen app asm failed")?;
 
     Ok(())
 }
@@ -132,38 +128,46 @@ fn get_bin_targets(user_path: &str) -> anyhow::Result<Vec<String>> {
     Ok(targets)
 }
 
-fn gen_app_asm(bins: Vec<String>, dest: &str) -> anyhow::Result<()> {
+fn gen_app_asm2(bins: Vec<String>, dest: &str) -> anyhow::Result<()> {
+    let mut env = Environment::new();
+    env.set_undefined_behavior(UndefinedBehavior::Strict);
+    env.add_template("app.asm", include_str!("./app.asm.tmpl"))
+        .context("add template failed")?;
+    let tmpl = env.get_template("app.asm").unwrap();
+
+    let apps: Vec<_> = bins
+        .iter()
+        .enumerate()
+        .map(|(idx, bin)| {
+            let name = PathBuf::from(&bin)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap()
+                .to_string();
+            let bin_path = bin.clone();
+            let entry = format!("{:#x}", BASE_ADDRESS + APP_MAX_SIZE * idx);
+            AppInfo {
+                name,
+                bin_path,
+                entry,
+            }
+        })
+        .collect();
+    let ctx = context! {
+        apps,
+        number_of_apps => apps.len(),
+    };
+
     let file = File::create(dest).context("create file failed")?;
-    let mut writer = BufWriter::new(file);
-
-    writeln!(writer, "\t.section .data")?;
-    writeln!(writer, "\t.globl app_data")?;
-    writeln!(writer, "app_data:")?;
-    writeln!(writer, "\t.quad {}", bins.len())?;
-
-    for i in 0..bins.len() {
-        writeln!(writer, "\t.quad app_{}_start", i)?;
-        writeln!(writer, "\t.quad app_{}_end", i)?;
-        writeln!(writer, "\t.quad app_{}_name", i)?;
-        writeln!(writer, "\t.quad app_{}_entry", i)?;
-    }
-
-    let base_address = 0x80400000;
-    let step = 0x20000;
-
-    for (i, bin) in bins.iter().enumerate() {
-        let name = Path::new(bin).file_name().unwrap().to_str().unwrap();
-        let address = format!("{:#x}", base_address + step * i);
-        writeln!(writer, "app_{}_start:", i)?;
-        writeln!(writer, "\t.incbin \"{}\"", bin)?;
-        writeln!(writer, "app_{}_end:", i)?;
-        writeln!(writer, "app_{}_name:", i)?;
-        writeln!(writer, "\t.string \"{}\"", name)?;
-        writeln!(writer, "app_{}_entry:", i)?;
-        writeln!(writer, "\t.quad {}", address)?;
-    }
-
-    writer.flush().context("flush failed")?;
+    tmpl.render_to_write(ctx, file)
+        .context("render to file failed")?;
 
     Ok(())
+}
+
+#[derive(Serialize)]
+struct AppInfo {
+    name: String,
+    bin_path: String,
+    entry: String,
 }

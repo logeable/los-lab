@@ -1,0 +1,20 @@
+	.section .data
+	.globl app_data
+app_data:
+	.quad {{number_of_apps}}
+{%- for app in apps %}
+	.quad app_{{loop.index0}}_start
+	.quad app_{{loop.index0}}_end
+	.quad app_{{loop.index0}}_name
+	.quad app_{{loop.index0}}_entry
+{%- endfor %}
+
+{%- for app in apps %}
+app_{{loop.index0}}_start:
+	.incbin "{{app.bin_path}}"
+app_{{loop.index0}}_end:
+app_{{loop.index0}}_name:
+	.string "{{app.name}}"
+app_{{loop.index0}}_entry:
+	.quad {{app.entry}}
+{%- endfor %}
