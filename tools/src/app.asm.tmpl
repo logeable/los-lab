@@ -6,7 +6,7 @@ app_data:
 	.quad app_{{loop.index0}}_start
 	.quad app_{{loop.index0}}_end
 	.quad app_{{loop.index0}}_name
-	.quad app_{{loop.index0}}_entry
+	.quad {{app.entry}}
 {%- endfor %}
 
 {%- for app in apps %}
@@ -15,6 +15,4 @@ app_{{loop.index0}}_start:
 app_{{loop.index0}}_end:
 app_{{loop.index0}}_name:
 	.string "{{app.name}}"
-app_{{loop.index0}}_entry:
-	.quad {{app.entry}}
 {%- endfor %}
