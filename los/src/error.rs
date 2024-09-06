@@ -13,3 +13,5 @@ impl core::fmt::Display for KernelError {
         write!(f, "{:?}", self)
     }
 }
+
+pub type Result<T> = core::result::Result<T, KernelError>;

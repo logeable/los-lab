@@ -1,23 +1,14 @@
-use ansi_rgb::{white, Foreground};
+use ansi_rgb::{green, Foreground};
 
-use crate::{
-    batch::{run_next_app, APP_LOADER},
-    println,
-};
+use crate::{println, task};
 
 pub fn sys_exit(exit_code: i32) -> ! {
     {
-        let mut loader = APP_LOADER.lock();
-        loader.update_end_time();
         println!(
             "{}",
-            format_args!(
-                "app exit_code: {}, dur: {}",
-                exit_code,
-                loader.get_app_duration()
-            )
-            .fg(white())
+            format_args!("app exit_code: {}", exit_code,).fg(green())
         );
     }
-    run_next_app()
+
+    task::exit_current_task_and_schedule()
 }

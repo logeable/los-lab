@@ -1,17 +1,14 @@
-use crate::{batch::run_next_app, println, syscall};
+use crate::{println, syscall, task};
 use ansi_rgb::{yellow, Foreground};
-use core::arch::global_asm;
 use riscv::register::{scause, sstatus, stval, stvec};
-
-global_asm!(include_str!("trap.asm"));
 
 pub fn init() {
     extern "C" {
-        fn s_trap_enter();
+        fn _s_trap_enter();
     }
 
     unsafe {
-        stvec::write(s_trap_enter as usize, stvec::TrapMode::Direct);
+        stvec::write(_s_trap_enter as usize, stvec::TrapMode::Direct);
     }
 }
 
@@ -41,7 +38,7 @@ pub fn process_trap(ctx: &mut TrapContext) {
                     "{}",
                     format_args!("[TRAP] illegal instruction: {:x}", stval).fg(yellow())
                 );
-                run_next_app();
+                task::schedule();
             }
             scause::Exception::Breakpoint => todo!(),
             scause::Exception::LoadFault => todo!(),
@@ -63,11 +60,10 @@ pub fn process_trap(ctx: &mut TrapContext) {
             scause::Exception::Unknown => todo!(),
         },
     }
-
-    return_to_user(ctx)
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct TrapContext {
     pub regs: [usize; 32],
     pub sstatus: sstatus::Sstatus,
@@ -88,15 +84,5 @@ impl TrapContext {
         ctx.set_sp(sp);
 
         ctx
-    }
-}
-
-pub fn return_to_user(ctx_ptr: *const TrapContext) -> ! {
-    extern "C" {
-        fn s_trap_return(ctx_ptr: usize) -> !;
-    }
-
-    unsafe {
-        s_trap_return(ctx_ptr as usize);
     }
 }

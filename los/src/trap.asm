@@ -4,8 +4,14 @@
     sd x\i, \i*8(sp)
 .endm
 
-.align 2
-s_trap_enter:
+.macro LOAD_X i
+    ld x\i, \i*8(sp)
+.endm
+
+    .text
+    .align 2
+    .globl _s_trap_enter
+_s_trap_enter:
     csrrw sp, sscratch, sp
     add sp, sp, -34*8
 
@@ -25,14 +31,8 @@ s_trap_enter:
     mv a0, sp
     call process_trap
 
-    
-.macro LOAD_X i
-    ld x\i, \i*8(sp)
-.endm
-
-s_trap_return:
-    mv sp, a0
-
+    .globl _s_trap_return
+_s_trap_return:
     ld t0, 2*8(sp)
     csrw sscratch, t0
     ld t0, 32*8(sp)

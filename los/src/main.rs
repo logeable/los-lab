@@ -1,40 +1,28 @@
 #![no_std]
 #![no_main]
-mod batch;
 mod console;
 mod error;
 mod sbi;
 mod syscall;
+mod task;
 mod trap;
 
 use ansi_rgb::cyan_blue;
 use ansi_rgb::{red, Foreground};
-use batch::APP_LOADER;
 use core::{arch::global_asm, panic::PanicInfo};
 
 global_asm!(include_str!("entry.asm"));
+global_asm!(include_str!("trap.asm"));
 global_asm!(include_str!("app.asm"));
 
 #[no_mangle]
 fn rust_main() {
     clear_bss();
-    print_kernel_info();
-
     trap::init();
 
-    {
-        let app_loader = APP_LOADER.lock();
-        println!("app numbers: {}", app_loader.app_number());
-        for i in 0..app_loader.app_number() {
-            println!(
-                "loading app {}: {:?}",
-                i,
-                app_loader.get_app_info(i as usize)
-            );
-        }
-    }
+    print_kernel_info();
 
-    batch::run_next_app();
+    task::schedule();
 }
 
 fn print_kernel_info() {
