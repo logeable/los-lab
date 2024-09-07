@@ -28,7 +28,6 @@ lazy_static! {
 }
 
 pub struct TaskManager {
-    number_of_task: usize,
     tasks: [Option<TaskControlBlock>; MAX_APPS],
     current_task_index: Option<usize>,
 }
@@ -57,7 +56,6 @@ impl TaskManager {
             ));
         }
         TaskManager {
-            number_of_task,
             tasks,
             current_task_index: None,
         }
@@ -172,8 +170,4 @@ pub fn exit_current_task_and_schedule() {
 pub fn suspend_current_task_and_schedule() {
     TASK_MANAGER.lock().get_current_mut().unwrap().status = TaskStatus::Ready;
     schedule();
-}
-
-pub fn get_currrent_tcb() -> Option<TaskControlBlock> {
-    TASK_MANAGER.lock().get_current_mut().map(|v| v.clone())
 }

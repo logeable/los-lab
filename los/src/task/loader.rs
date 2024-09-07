@@ -1,5 +1,3 @@
-use crate::println;
-
 use super::manager::MAX_APPS;
 use core::{
     ffi::{c_char, CStr},

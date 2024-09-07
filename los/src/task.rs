@@ -2,7 +2,6 @@ mod loader;
 mod manager;
 
 pub use manager::exit_current_task_and_schedule;
-pub use manager::get_currrent_tcb;
 pub use manager::schedule;
 pub use manager::suspend_current_task_and_schedule;
 use manager::TASK_MANAGER;
