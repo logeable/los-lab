@@ -104,7 +104,7 @@ pub fn switch_task(current: *mut TaskContext, next: *const TaskContext) {
     unsafe { _switch_task(current, next) };
 }
 
-pub fn schedule() -> ! {
+pub fn schedule() {
     let mut unused = TaskContext::init(0, 0);
     let current_context = {
         TASK_MANAGER
@@ -130,8 +130,7 @@ pub fn schedule() -> ! {
     };
 
     switch_task(current_context, next_context);
-
-    loop {}
+    //loop {}
 }
 
 #[repr(align(4096))]
