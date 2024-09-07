@@ -4,11 +4,6 @@ mod manager;
 pub use manager::exit_current_task_and_schedule;
 pub use manager::schedule;
 pub use manager::suspend_current_task_and_schedule;
-use manager::TASK_MANAGER;
-
-pub fn init() {
-    let _ = TASK_MANAGER.lock();
-}
 
 #[derive(Debug, Clone, Copy)]
 pub struct TaskControlBlock {

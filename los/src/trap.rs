@@ -1,5 +1,5 @@
-use crate::{println, syscall, task};
-use riscv::register::{scause, sstatus, stval, stvec};
+use crate::{println, syscall, task, timer};
+use riscv::register::{scause, sie, sstatus, stval, stvec};
 
 pub fn init() {
     extern "C" {
@@ -9,6 +9,8 @@ pub fn init() {
     unsafe {
         stvec::write(_s_trap_enter as usize, stvec::TrapMode::Direct);
     }
+
+    unsafe { sie::set_stimer() };
 }
 
 #[no_mangle]
@@ -23,7 +25,10 @@ pub fn process_trap(ctx: &mut TrapContext) {
             scause::Interrupt::SupervisorSoft => todo!(),
             scause::Interrupt::UserTimer => todo!(),
             scause::Interrupt::VirtualSupervisorTimer => todo!(),
-            scause::Interrupt::SupervisorTimer => todo!(),
+            scause::Interrupt::SupervisorTimer => {
+                timer::set_next_trigger();
+                task::suspend_current_task_and_schedule()
+            }
             scause::Interrupt::UserExternal => todo!(),
             scause::Interrupt::VirtualSupervisorExternal => todo!(),
             scause::Interrupt::SupervisorExternal => todo!(),

@@ -5,6 +5,7 @@ mod error;
 mod sbi;
 mod syscall;
 mod task;
+mod timer;
 mod trap;
 
 use core::{arch::global_asm, panic::PanicInfo};
@@ -17,7 +18,7 @@ global_asm!(include_str!("app.asm"));
 fn rust_main() {
     clear_bss();
     trap::init();
-    task::init();
+    timer::init();
 
     print_kernel_info();
 
