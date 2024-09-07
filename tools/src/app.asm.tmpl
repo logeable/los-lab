@@ -8,6 +8,7 @@ _app_data:
 	.quad app_{{loop.index0}}_name
 	.quad {{app.entry}}
 {%- endfor %}
+	.string "{{uuid}}"
 
 {%- for app in apps %}
 app_{{loop.index0}}_start:

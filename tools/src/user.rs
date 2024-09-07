@@ -4,6 +4,7 @@ use minijinja::{context, Environment, UndefinedBehavior};
 use regex::Regex;
 use serde::Serialize;
 use std::{fs::File, io::Write, path::PathBuf, process::Command};
+use uuid::Uuid;
 
 const BASE_ADDRESS: usize = 0x80800000;
 const APP_MAX_SIZE: usize = 0x20000;
@@ -174,9 +175,11 @@ fn gen_app_asm2(bins: Vec<String>, dest: &str) -> anyhow::Result<()> {
             }
         })
         .collect();
+
     let ctx = context! {
         apps,
         number_of_apps => apps.len(),
+        uuid=> Uuid::new_v4().to_string()
     };
 
     let file = File::create(dest).context("create file failed")?;
