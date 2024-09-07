@@ -1,5 +1,4 @@
 use crate::{println, syscall, task};
-use ansi_rgb::{yellow, Foreground};
 use riscv::register::{scause, sstatus, stval, stvec};
 
 pub fn init() {
@@ -34,10 +33,7 @@ pub fn process_trap(ctx: &mut TrapContext) {
             scause::Exception::InstructionMisaligned => todo!(),
             scause::Exception::InstructionFault => todo!(),
             scause::Exception::IllegalInstruction => {
-                println!(
-                    "{}",
-                    format_args!("[TRAP] illegal instruction: {:x}", stval).fg(yellow())
-                );
+                println!("[TRAP] illegal instruction: {:x}", stval);
                 task::schedule();
             }
             scause::Exception::Breakpoint => todo!(),

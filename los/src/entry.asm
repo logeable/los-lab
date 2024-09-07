@@ -8,5 +8,5 @@ _start:
     .globl boot_stack_lower_bound
     .globl boot_stack_top
 boot_stack_lower_bound:
-    .space 4096 * 16
+    .space 1<<20
 boot_stack_top:

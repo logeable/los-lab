@@ -1,6 +1,6 @@
 	.section .data
-	.globl app_data
-app_data:
+	.globl _app_data
+_app_data:
 	.quad {{number_of_apps}}
 {%- for app in apps %}
 	.quad app_{{loop.index0}}_start

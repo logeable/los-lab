@@ -1,14 +1,19 @@
-use ansi_rgb::{green, Foreground};
-
 use crate::{println, task};
 
 pub fn sys_exit(exit_code: i32) -> ! {
     {
-        println!(
-            "{}",
-            format_args!("app exit_code: {}", exit_code,).fg(green())
-        );
+        println!("app exit_code: {}", exit_code,);
     }
 
-    task::exit_current_task_and_schedule()
+    task::exit_current_task_and_schedule();
+
+    unreachable!()
+}
+
+pub fn sys_task_yield() -> usize {
+    println!("before {:?}", task::get_currrent_tcb());
+    task::suspend_current_task_and_schedule();
+    println!("after {:?}", task::get_currrent_tcb());
+
+    0
 }

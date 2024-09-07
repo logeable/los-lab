@@ -5,7 +5,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::{fs::File, io::Write, path::PathBuf, process::Command};
 
-const BASE_ADDRESS: usize = 0x80400000;
+const BASE_ADDRESS: usize = 0x80800000;
 const APP_MAX_SIZE: usize = 0x20000;
 
 pub fn build(build_args: &BuildArgs) -> anyhow::Result<()> {
@@ -68,7 +68,7 @@ pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
         .join("riscv64gc-unknown-none-elf")
         .join(profile);
 
-    let bin_name_regex = Regex::new(r"^\d+_.*").unwrap();
+    let bin_name_regex = Regex::new(r"^(?<ID>\d+)_.*").unwrap();
     let mut bins = Vec::new();
     for target in targets {
         let bin_path = bin_dir.join(target);
@@ -86,11 +86,24 @@ pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
         .iter()
         .filter(|p| bin_name_regex.is_match(p.file_name().unwrap().to_str().unwrap()))
         .collect();
-    bins.sort();
-    let bins = bins
+
+    bins.sort_by(|a, b| {
+        let a = a.file_name().unwrap().to_str().unwrap();
+        let b = b.file_name().unwrap().to_str().unwrap();
+        let id_a: i32 = bin_name_regex.captures(a).unwrap()["ID"].parse().unwrap();
+        let id_b: i32 = bin_name_regex.captures(b).unwrap()["ID"].parse().unwrap();
+
+        id_a.cmp(&id_b)
+    });
+
+    let bins: Vec<String> = bins
         .into_iter()
         .map(|p| p.to_str().unwrap().to_string())
         .collect();
+
+    for name in bins.iter() {
+        println!("{:?}", name);
+    }
 
     gen_app_asm2(bins, &asm_args.app_asm_path).context("gen app asm failed")?;
 

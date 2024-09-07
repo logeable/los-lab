@@ -7,8 +7,6 @@ mod syscall;
 mod task;
 mod trap;
 
-use ansi_rgb::cyan_blue;
-use ansi_rgb::{red, Foreground};
 use core::{arch::global_asm, panic::PanicInfo};
 
 global_asm!(include_str!("entry.asm"));
@@ -19,6 +17,7 @@ global_asm!(include_str!("app.asm"));
 fn rust_main() {
     clear_bss();
     trap::init();
+    task::init();
 
     print_kernel_info();
 
@@ -42,10 +41,7 @@ fn print_kernel_info() {
     }
 
     fn color_print(name: &str, start: usize, end: usize) {
-        println!(
-            "{}",
-            format_args!("{:10}: [{:#x}..{:#x}]", name, start, end,).fg(cyan_blue())
-        );
+        println!("{:10}: [{:#x}..{:#x}]", name, start, end,);
     }
 
     color_print("kernel", skernel as usize, ekernel as usize);
@@ -69,7 +65,7 @@ fn clear_bss() {
 
 #[panic_handler]
 fn panic_handler(panic_info: &PanicInfo) -> ! {
-    println!("{}", panic_info.fg(red()));
+    println!("{}", panic_info);
 
     sbi::shutdown(true);
 }

@@ -8,7 +8,7 @@
     ld s\i, 16+\i*8(t0)
 .endm
     
-    .text
+    .section .text
     .align 2
 _switch_task:
     mv t0, a0

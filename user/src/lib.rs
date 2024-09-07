@@ -46,9 +46,14 @@ macro_rules! entry {
     };
 }
 
-fn write(fd: usize, buf: &[u8]) -> isize {
+pub fn write(fd: usize, buf: &[u8]) -> isize {
     syscall::sys_write(fd, buf)
 }
-fn exit(exit_code: i32) -> ! {
+
+pub fn exit(exit_code: i32) -> ! {
     syscall::sys_exit(exit_code as usize)
+}
+
+pub fn sched_yield() -> isize {
+    syscall::sys_sched_yield()
 }

@@ -1,7 +1,8 @@
 use core::arch::asm;
 
-const SYS_WRITE: usize = 64;
-const SYS_EXIT: usize = 93;
+pub const SYS_WRITE: usize = 64;
+pub const SYS_EXIT: usize = 93;
+pub const SYS_SCHED_YIELD: usize = 124;
 
 pub fn sys_write(fd: usize, buf: &[u8]) -> isize {
     syscall_3(SYS_WRITE, fd, buf.as_ptr() as usize, buf.len())
@@ -11,6 +12,10 @@ pub fn sys_exit(exit_code: usize) -> ! {
     syscall_1(SYS_EXIT, exit_code);
 
     unreachable!()
+}
+
+pub fn sys_sched_yield() -> isize {
+    syscall_0(SYS_SCHED_YIELD)
 }
 
 #[allow(dead_code)]

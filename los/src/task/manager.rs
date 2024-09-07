@@ -1,7 +1,6 @@
-use crate::{println, trap::TrapContext};
+use crate::{println, task::loader::AppLoader, trap::TrapContext};
 
-use super::{loader::APP_LOADER, TaskContext, TaskControlBlock, TaskStatus};
-use ansi_rgb::{green, Foreground};
+use super::{TaskContext, TaskControlBlock, TaskStatus};
 use core::{arch::global_asm, mem};
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -40,7 +39,7 @@ impl TaskManager {
             fn _s_trap_return() -> !;
         }
 
-        let app_loader = APP_LOADER.lock();
+        let app_loader = AppLoader::new();
         let number_of_task = app_loader.get_number_of_app();
         let mut tasks = [None; MAX_APPS];
         for i in 0..number_of_task {
@@ -65,12 +64,24 @@ impl TaskManager {
     }
 
     fn find_next_ready_mut(&mut self) -> Option<(usize, &mut TaskControlBlock)> {
-        self.tasks
-            .iter_mut()
-            .enumerate()
-            .filter(|(_idx, task)| task.is_some())
-            .map(|(idx, task)| (idx, task.as_mut().unwrap()))
-            .find(|(_idx, task)| task.status == TaskStatus::Ready)
+        let start_idx = match self.current_task_index {
+            Some(current_idx) => current_idx + 1,
+            None => 0,
+        };
+
+        let len = self.tasks.len();
+        let mut found_idx = None;
+        for i in start_idx..(start_idx + len) {
+            let idx = i % len;
+            if let Some(task) = &mut self.tasks[idx] {
+                if task.status == TaskStatus::Ready {
+                    found_idx = Some(idx);
+                    break;
+                }
+            }
+        }
+
+        found_idx.map(|idx| (idx, self.tasks[idx].as_mut().unwrap()))
     }
 
     fn get_current_mut(&mut self) -> Option<&mut TaskControlBlock> {
@@ -109,10 +120,7 @@ pub fn schedule() -> ! {
             .find_next_ready_mut()
             .expect("no more tasks to schedule");
 
-        println!(
-            "{}",
-            format_args!("[SCHEDULE] switch to {:?}", next_task.name).fg(green())
-        );
+        println!("[SCHEDULE] switch to {}", next_task.name);
         let next_context: *const TaskContext = &next_task.context;
 
         next_task.status = TaskStatus::Running;
@@ -157,12 +165,16 @@ impl UserStack {
     }
 }
 
-pub fn exit_current_task_and_schedule() -> ! {
+pub fn exit_current_task_and_schedule() {
     TASK_MANAGER.lock().get_current_mut().unwrap().status = TaskStatus::Exited;
     schedule();
 }
 
-pub fn suspend_current_task_and_schedule() -> ! {
+pub fn suspend_current_task_and_schedule() {
     TASK_MANAGER.lock().get_current_mut().unwrap().status = TaskStatus::Ready;
     schedule();
+}
+
+pub fn get_currrent_tcb() -> Option<TaskControlBlock> {
+    TASK_MANAGER.lock().get_current_mut().map(|v| v.clone())
 }

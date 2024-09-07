@@ -2,10 +2,16 @@ mod loader;
 mod manager;
 
 pub use manager::exit_current_task_and_schedule;
+pub use manager::get_currrent_tcb;
 pub use manager::schedule;
 pub use manager::suspend_current_task_and_schedule;
+use manager::TASK_MANAGER;
 
-#[derive(Clone, Copy)]
+pub fn init() {
+    let _ = TASK_MANAGER.lock();
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct TaskControlBlock {
     pub name: &'static str,
     pub context: TaskContext,
@@ -22,7 +28,7 @@ impl TaskControlBlock {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct TaskContext {
     pub ra: usize,
@@ -36,7 +42,7 @@ impl TaskContext {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TaskStatus {
     Ready,
     Running,

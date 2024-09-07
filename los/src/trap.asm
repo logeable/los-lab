@@ -8,7 +8,7 @@
     ld x\i, \i*8(sp)
 .endm
 
-    .text
+    .section .text
     .align 2
     .globl _s_trap_enter
 _s_trap_enter:

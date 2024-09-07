@@ -1,17 +1,10 @@
+use crate::println;
+
 use super::manager::MAX_APPS;
 use core::{
     ffi::{c_char, CStr},
     slice,
 };
-use lazy_static::lazy_static;
-
-lazy_static! {
-    pub static ref APP_LOADER: spin::Mutex<AppLoader> = {
-        let loader = AppLoader::new();
-
-        spin::Mutex::new(loader)
-    };
-}
 
 pub struct AppLoader {
     number_of_app: usize,
@@ -19,7 +12,7 @@ pub struct AppLoader {
 }
 
 impl AppLoader {
-    fn new() -> Self {
+    pub fn new() -> Self {
         extern "C" {
             fn _app_data();
         }

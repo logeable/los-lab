@@ -6,7 +6,7 @@ struct Stdout;
 
 impl Write for Stdout {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        for c in s.chars() {
+        for &c in s.as_bytes() {
             sbi::console_putchar(c as usize);
         }
 
