@@ -118,7 +118,6 @@ pub fn schedule() {
             .find_next_ready_mut()
             .expect("no more tasks to schedule");
 
-        println!("[SCHEDULE] switch to {}", next_task.name);
         let next_context: *const TaskContext = &next_task.context;
 
         next_task.status = TaskStatus::Running;
