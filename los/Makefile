@@ -37,6 +37,15 @@ gdb: ${KERNEL_BIN}
 		-ex 'b *${KERNEL_BASE_ADDRESS}'
 	pkill -l -n ${QEMU} 
 
+.PHONY: dtb.out
+dtb.out:
+	qemu-system-riscv64 -machine virt,dumpdtb=dtb.out
+
+dump_dtb: dtb.out
+	fdtdump $<
+
+
+
 
 ${KERNEL}:
 	cargo build ${build_args}
