@@ -40,7 +40,7 @@ _s_trap_return:
     ld t0, 33*8(sp)
     csrw sepc, t0
 
-    sd x1, 1*8(sp)    
+    ld x1, 1*8(sp)
     .set i, 3 
     .rept 29
         LOAD_X %i
