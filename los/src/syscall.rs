@@ -2,10 +2,10 @@ mod fs;
 mod proc;
 mod time;
 
-use crate::println;
+use crate::{println, timer::TimeVal};
 use fs::sys_write;
 use proc::{sys_exit, sys_sched_yield};
-use time::{sys_gettimeofday, TimeVal};
+use time::sys_gettimeofday;
 
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;

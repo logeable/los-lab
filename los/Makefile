@@ -45,7 +45,7 @@ dtb.out:
 	qemu-system-riscv64 -machine virt,dumpdtb=dtb.out
 
 dump_dtb: dtb.out
-	fdtdump $<
+	dtc -I dtb -O dts $<
 
 
 

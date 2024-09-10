@@ -1,15 +1,11 @@
-use crate::timer;
-
-#[derive(Debug, Clone, Copy)]
-#[repr(C)]
-pub struct TimeVal {
-    pub sec: u64,
-    pub usec: u64,
-}
+use crate::timer::{self, TimeVal};
 
 pub fn sys_gettimeofday(tp: *mut TimeVal, _tzp: usize) -> isize {
     let tp = unsafe { &mut *tp };
-    tp.usec = timer::get_time() as u64;
+    let t = timer::get_time();
+
+    tp.sec = t.sec;
+    tp.usec = t.usec;
 
     0
 }
