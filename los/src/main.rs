@@ -2,6 +2,7 @@
 #![no_main]
 mod console;
 mod error;
+mod mm;
 mod sbi;
 mod syscall;
 mod task;
@@ -17,6 +18,7 @@ global_asm!(include_str!("app.asm"));
 #[no_mangle]
 fn rust_main() {
     clear_bss();
+    mm::init();
     trap::init();
     timer::init();
 
