@@ -1,5 +1,5 @@
 use crate::{println, syscall, task, timer};
-use riscv::register::{scause, sie, sstatus, stval, stvec};
+use riscv::register::{scause, sepc, sie, sstatus, stval, stvec};
 
 pub fn init() {
     extern "C" {
@@ -20,45 +20,36 @@ pub fn process_trap(ctx: &mut TrapContext) {
 
     match scause.cause() {
         scause::Trap::Interrupt(intr) => match intr {
-            scause::Interrupt::UserSoft => todo!(),
-            scause::Interrupt::VirtualSupervisorSoft => todo!(),
-            scause::Interrupt::SupervisorSoft => todo!(),
-            scause::Interrupt::UserTimer => todo!(),
-            scause::Interrupt::VirtualSupervisorTimer => todo!(),
             scause::Interrupt::SupervisorTimer => {
                 timer::set_next_trigger();
                 task::suspend_current_task_and_schedule()
             }
-            scause::Interrupt::UserExternal => todo!(),
-            scause::Interrupt::VirtualSupervisorExternal => todo!(),
-            scause::Interrupt::SupervisorExternal => todo!(),
-            scause::Interrupt::Unknown => todo!(),
+            _ => {
+                unimplemented!("Interrupt handler not implemented: {:?}", intr);
+            }
         },
         scause::Trap::Exception(ex) => match ex {
-            scause::Exception::InstructionMisaligned => todo!(),
-            scause::Exception::InstructionFault => todo!(),
             scause::Exception::IllegalInstruction => {
-                println!("[TRAP] illegal instruction: {:x}", stval);
-                task::schedule();
+                println!(
+                    "[TRAP] illegal instruction: {:#x} {:#x} {:?} sie: {} spie: {}, {:?}",
+                    stval,
+                    sepc::read(),
+                    sstatus::read().spp(),
+                    sstatus::read().sie(),
+                    sstatus::read().spie(),
+                    ctx,
+                );
+
+                task::exit_current_task_and_schedule()
             }
-            scause::Exception::Breakpoint => todo!(),
-            scause::Exception::LoadFault => todo!(),
-            scause::Exception::StoreMisaligned => todo!(),
-            scause::Exception::StoreFault => todo!(),
             scause::Exception::UserEnvCall => {
                 ctx.regs[10] =
                     syscall::syscall(ctx.regs[17], ctx.regs[10], ctx.regs[11], ctx.regs[12]);
                 ctx.sepc += 4;
             }
-            scause::Exception::VirtualSupervisorEnvCall => todo!(),
-            scause::Exception::InstructionPageFault => todo!(),
-            scause::Exception::LoadPageFault => todo!(),
-            scause::Exception::StorePageFault => todo!(),
-            scause::Exception::InstructionGuestPageFault => todo!(),
-            scause::Exception::LoadGuestPageFault => todo!(),
-            scause::Exception::VirtualInstruction => todo!(),
-            scause::Exception::StoreGuestPageFault => todo!(),
-            scause::Exception::Unknown => todo!(),
+            _ => {
+                unimplemented!("Exception handler not implemented: {:?}", ex);
+            }
         },
     }
 }

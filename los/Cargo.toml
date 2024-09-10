@@ -8,3 +8,9 @@ lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 sbi-rt = { version = "0.0.3", features = ["legacy"] }
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 spin = "0.9.8"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

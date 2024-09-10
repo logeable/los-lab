@@ -15,7 +15,9 @@ impl Write for Stdout {
 }
 
 pub fn print(args: core::fmt::Arguments) {
-    Stdout.write_fmt(args).unwrap();
+    Stdout
+        .write_fmt(format_args!("\x1b[38;2;127;127;127m[K] {}\x1b[39m", args))
+        .unwrap();
 }
 
 #[macro_export]

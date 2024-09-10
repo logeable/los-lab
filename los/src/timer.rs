@@ -2,7 +2,7 @@ use riscv::register::time;
 
 use crate::sbi;
 
-const CLOCK_FREQ: usize = 1000000;
+const CLOCK_FREQ: usize = 10000000;
 const TICKS_PER_SEC: usize = 100;
 
 pub fn init() {

@@ -1,44 +1,25 @@
 mod fs;
 mod proc;
+mod time;
 
+use crate::println;
 use fs::sys_write;
-use proc::{sys_exit, sys_task_yield};
+use proc::{sys_exit, sys_sched_yield};
+use time::{sys_gettimeofday, TimeVal};
 
-use crate::{
-    error::{self, Result},
-    println,
-};
-
-#[derive(Debug)]
-#[repr(usize)]
-enum SyscallId {
-    Write = 64,
-    Exit = 93,
-    Yield = 124,
-}
-
-impl TryFrom<usize> for SyscallId {
-    type Error = error::KernelError;
-
-    fn try_from(value: usize) -> Result<Self> {
-        match value {
-            64 => Ok(Self::Write),
-            93 => Ok(Self::Exit),
-            124 => Ok(Self::Yield),
-            _ => Err(error::KernelError::InvalidSyscallId(value)),
-        }
-    }
-}
+pub const SYS_WRITE: usize = 64;
+pub const SYS_EXIT: usize = 93;
+pub const SYS_SCHED_YIELD: usize = 124;
+pub const SYS_GETTIMEOFDAY: usize = 169;
 
 pub fn syscall(id: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {
-    match SyscallId::try_from(id) {
-        Ok(id) => match id {
-            SyscallId::Write => sys_write(arg0, arg1 as *const u8, arg2) as usize,
-            SyscallId::Exit => sys_exit(arg0 as i32),
-            SyscallId::Yield => sys_task_yield(),
-        },
-        Err(err) => {
-            println!("[SYSCALL] parse syscall id failed: {:?}", err);
+    match id {
+        SYS_WRITE => sys_write(arg0, arg1 as *const u8, arg2) as usize,
+        SYS_EXIT => sys_exit(arg0 as i32),
+        SYS_SCHED_YIELD => sys_sched_yield() as usize,
+        SYS_GETTIMEOFDAY => sys_gettimeofday(arg0 as *mut TimeVal, arg1) as usize,
+        _ => {
+            println!("[SYSCALL] parse syscall id failed: {}", id);
             -1i8 as usize
         }
     }

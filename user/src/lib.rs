@@ -2,9 +2,12 @@
 #![no_main]
 
 pub mod console;
+mod error;
 mod syscall;
 
 use core::panic::PanicInfo;
+
+use error::{Error, Result};
 
 #[no_mangle]
 #[link_section = ".text.entry"]
@@ -30,8 +33,9 @@ fn clear_bss() {
 
 #[panic_handler]
 fn panic_handler(panic_info: &PanicInfo) -> ! {
-    println!("APP PANIC: {:?}", panic_info);
-    loop {}
+    println!("APP PANIC: {}", panic_info);
+
+    exit(1)
 }
 
 #[macro_export]
@@ -56,4 +60,22 @@ pub fn exit(exit_code: i32) -> ! {
 
 pub fn sched_yield() -> isize {
     syscall::sys_sched_yield()
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct TimeVal {
+    pub sec: u64,
+    pub usec: u64,
+}
+
+pub fn gettimeofday() -> Result<TimeVal> {
+    let mut t = TimeVal { sec: 0, usec: 0 };
+
+    let ret = syscall::sys_gettimeofday(&mut t, 0);
+    if ret != 0 {
+        return Err(Error::SyscallError(ret));
+    }
+
+    Ok(t)
 }

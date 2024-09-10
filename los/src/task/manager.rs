@@ -1,4 +1,4 @@
-use crate::{println, task::loader::AppLoader, trap::TrapContext};
+use crate::{task::loader::AppLoader, trap::TrapContext};
 
 use super::{TaskContext, TaskControlBlock, TaskStatus};
 use core::{arch::global_asm, mem};
@@ -7,9 +7,9 @@ use spin::Mutex;
 
 global_asm!(include_str!("switch.asm"));
 
-const USER_STACK_SIZE: usize = 4096 * 2;
-const KERNEL_STACK_SIZE: usize = 4096 * 2;
-pub(super) const MAX_APPS: usize = 100;
+const USER_STACK_SIZE: usize = 4096 * 4;
+const KERNEL_STACK_SIZE: usize = 4096 * 4;
+pub(super) const MAX_APPS: usize = 32;
 
 static KERNEL_STACKS: [KernelStack; MAX_APPS] = [KernelStack {
     data: [0; KERNEL_STACK_SIZE],
@@ -127,7 +127,6 @@ pub fn schedule() {
     };
 
     switch_task(current_context, next_context);
-    //loop {}
 }
 
 #[repr(align(4096))]
@@ -161,12 +160,18 @@ impl UserStack {
     }
 }
 
-pub fn exit_current_task_and_schedule() {
+pub fn exit_current_task_and_schedule() -> ! {
     TASK_MANAGER.lock().get_current_mut().unwrap().status = TaskStatus::Exited;
     schedule();
+
+    unreachable!();
 }
 
 pub fn suspend_current_task_and_schedule() {
     TASK_MANAGER.lock().get_current_mut().unwrap().status = TaskStatus::Ready;
     schedule();
+}
+
+pub fn get_current_task_name() -> &'static str {
+    TASK_MANAGER.lock().get_current_mut().unwrap().name
 }

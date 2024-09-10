@@ -34,7 +34,10 @@ gdb: ${KERNEL_BIN}
 		-ex 'file ${FULL_KERNEL}' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote 127.0.0.1:1234' \
-		-ex 'b *${KERNEL_BASE_ADDRESS}'
+		-ex 'b *${KERNEL_BASE_ADDRESS}' \
+		-ex 'display/x $$fp' \
+		-ex 'display/x $$ra' \
+		-ex 'display/x $$sepc'
 	pkill -l -n ${QEMU} 
 
 .PHONY: dtb.out
