@@ -10,6 +10,7 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 spin = "0.9.8"
 buddy_system_allocator = "0.10.0"
 bitflags = "2.6.0"
+elf = { version = "0.7.4", default-features = false }
 
 [profile.dev]
 panic = "abort"

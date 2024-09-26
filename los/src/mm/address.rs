@@ -3,7 +3,7 @@ use core::mem;
 use super::page_table::PageTableEntry;
 
 const PAGE_OFFSET_WIDTH: usize = 12;
-const PAGE_SIZE: usize = 1 << PAGE_OFFSET_WIDTH;
+pub const PAGE_SIZE: usize = 1 << PAGE_OFFSET_WIDTH;
 const VA_WIDTH_SV39: usize = 39;
 const PA_WIDTH_SV39: usize = 56;
 const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_OFFSET_WIDTH;
@@ -11,15 +11,6 @@ const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_OFFSET_WIDTH;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct PhysAddr(pub usize);
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct VirtAddr(pub usize);
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct PhysPageNum(pub usize);
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct VirtPageNum(pub usize);
 
 impl PhysAddr {
     pub fn floor_ppn(&self) -> PhysPageNum {
@@ -42,6 +33,34 @@ impl From<PhysPageNum> for PhysAddr {
         Self(value.0 << PAGE_OFFSET_WIDTH)
     }
 }
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct VirtAddr(pub usize);
+
+impl VirtAddr {
+    pub fn floor_vpn(&self) -> VirtPageNum {
+        VirtPageNum(self.0 / PAGE_SIZE)
+    }
+
+    pub fn ceil_vpn(&self) -> VirtPageNum {
+        VirtPageNum((self.0 + PAGE_SIZE - 1) / PAGE_SIZE)
+    }
+}
+
+impl From<usize> for VirtAddr {
+    fn from(value: usize) -> Self {
+        VirtAddr(value)
+    }
+}
+
+impl From<VirtAddr> for usize {
+    fn from(value: VirtAddr) -> Self {
+        value.0
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct PhysPageNum(pub usize);
 
 impl PhysPageNum {
     pub fn clear(&mut self) {
@@ -73,6 +92,9 @@ impl From<usize> for PhysPageNum {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct VirtPageNum(pub usize);
+
 impl VirtPageNum {
     pub fn get_level_1_index(&self) -> usize {
         self.0 & 0x1ff
@@ -90,5 +112,54 @@ impl VirtPageNum {
 impl From<usize> for VirtPageNum {
     fn from(value: usize) -> Self {
         Self(value & ((1 << VPN_WIDTH_SV39) - 1))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct VPNRange {
+    start: VirtPageNum,
+    end: VirtPageNum,
+}
+
+impl VPNRange {
+    pub fn new(start: VirtPageNum, end: VirtPageNum) -> Self {
+        Self { start, end }
+    }
+
+    pub fn memory_size(&self) -> usize {
+        self.into_iter().count() * PAGE_SIZE
+    }
+}
+
+impl IntoIterator for VPNRange {
+    type Item = VirtPageNum;
+
+    type IntoIter = VPNRangeIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            current: self.start,
+            end: self.end,
+        }
+    }
+}
+
+pub struct VPNRangeIter {
+    current: VirtPageNum,
+    end: VirtPageNum,
+}
+
+impl Iterator for VPNRangeIter {
+    type Item = VirtPageNum;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current < self.end {
+            let current = self.current;
+            self.current = VirtPageNum::from(self.current.0 + 1);
+
+            Some(current)
+        } else {
+            None
+        }
     }
 }

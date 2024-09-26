@@ -56,8 +56,9 @@ impl StackFrameAllocator {
             if self.current == self.end {
                 None
             } else {
+                let ppn = self.current;
                 self.current += 1;
-                Some((self.current - 1).into())
+                Some(ppn.into())
             }
         }
     }

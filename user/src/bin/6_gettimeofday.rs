@@ -12,7 +12,7 @@ fn main() -> i32 {
 
     loop {
         let t = gettimeofday().unwrap();
-        if t.usec > v + 10000000 {
+        if t.usec > v + 3000000 {
             println!("done: {:?}", t);
             return 0;
         }

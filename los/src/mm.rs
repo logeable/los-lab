@@ -1,15 +1,19 @@
+use lazy_static::lazy_static;
+use spin::Mutex;
+
 mod address;
 mod frame_allocator;
 mod heap;
+mod memory_space;
 mod page_table;
 
-pub use frame_allocator::alloc as frame_alloc;
-pub use frame_allocator::Frame;
-pub use page_table::Flags as PageTableFlags;
-pub use page_table::PageTable;
-pub use page_table::PageTableEntry;
-
+lazy_static! {
+    pub static ref KERNEL_MEMORY_SPACE: Mutex<memory_space::MemorySpace> =
+        Mutex::new(memory_space::MemorySpace::new_kernel());
+}
 pub fn init() {
     heap::init();
     frame_allocator::init();
+
+    KERNEL_MEMORY_SPACE.lock().activate();
 }

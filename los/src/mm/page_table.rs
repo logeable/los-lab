@@ -1,12 +1,12 @@
 use alloc::vec::Vec;
-use alloc::{format, vec};
+use alloc::{string::ToString, vec};
 use bitflags::bitflags;
 
-use crate::error;
+use crate::{error, println};
 
 use super::{
     address::{PhysPageNum, VirtPageNum},
-    frame_alloc, Frame,
+    frame_allocator::{self, Frame},
 };
 
 bitflags! {
@@ -55,17 +55,19 @@ impl PageTableEntry {
 #[derive(Debug)]
 pub struct PageTable {
     root_ppn: PhysPageNum,
-    frames: Vec<Frame>,
+    dir_frames: Vec<Frame>,
 }
 
 impl PageTable {
     pub fn new() -> error::Result<Self> {
-        match frame_alloc() {
+        match frame_allocator::alloc() {
             Some(frame) => Ok(Self {
                 root_ppn: frame.ppn,
-                frames: vec![frame],
+                dir_frames: vec![frame],
             }),
-            None => Err(error::KernelError::AllocFrame("new root page table failed")),
+            None => Err(error::KernelError::AllocFrame(
+                "new root page table failed".to_string(),
+            )),
         }
     }
 
@@ -75,14 +77,14 @@ impl PageTable {
         let l3_index = vpn.get_level_3_index();
         let pte = &mut l3_ptes[l3_index];
         if !pte.is_valid() {
-            match super::frame_alloc() {
+            match frame_allocator::alloc() {
                 Some(frame) => {
                     *pte = PageTableEntry::new(frame.ppn, Flags::V);
-                    self.frames.push(frame);
+                    self.dir_frames.push(frame);
                 }
                 None => {
                     return Err(error::KernelError::AllocFrame(
-                        "allocate level2 page table frame failed",
+                        "allocate level2 page table frame failed".to_string(),
                     ))
                 }
             }
@@ -93,14 +95,14 @@ impl PageTable {
         let l2_index = vpn.get_level_2_index();
         let pte = &mut l2_ptes[l2_index];
         if !pte.is_valid() {
-            match super::frame_alloc() {
+            match frame_allocator::alloc() {
                 Some(frame) => {
                     *pte = PageTableEntry::new(frame.ppn, Flags::V);
-                    self.frames.push(frame);
+                    self.dir_frames.push(frame);
                 }
                 None => {
                     return Err(error::KernelError::AllocFrame(
-                        "allocate level1 page table frame failed",
+                        "allocate level1 page table frame failed".to_string(),
                     ))
                 }
             }
@@ -155,10 +157,14 @@ impl PageTable {
         Some(pte)
     }
 
+    pub fn satp(&self) -> usize {
+        (8 << 60) | (0 << 44) | self.root_ppn.0
+    }
+
     pub fn from_satp(satp: usize) -> Self {
         Self {
             root_ppn: PhysPageNum::from(satp),
-            frames: Vec::new(),
+            dir_frames: Vec::new(),
         }
     }
 

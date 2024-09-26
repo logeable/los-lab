@@ -47,6 +47,24 @@ pub fn process_trap(ctx: &mut TrapContext) {
                     syscall::syscall(ctx.regs[17], ctx.regs[10], ctx.regs[11], ctx.regs[12]);
                 ctx.sepc += 4;
             }
+            scause::Exception::StoreFault => {
+                println!(
+                    "[TRAP] store fault: {:#x} {:#x} {:?}",
+                    stval,
+                    sepc::read(),
+                    ctx
+                );
+                task::exit_current_task_and_schedule()
+            }
+            scause::Exception::StorePageFault => {
+                println!(
+                    "[TRAP] store page fault: {:#x} {:#x} {:?}",
+                    stval,
+                    sepc::read(),
+                    ctx
+                );
+                task::exit_current_task_and_schedule()
+            }
             _ => {
                 unimplemented!("Exception handler not implemented: {:?}", ex);
             }

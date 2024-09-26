@@ -27,7 +27,9 @@ fn rust_main() {
     timer::init();
 
     print_kernel_info();
-    task::schedule();
+
+    panic!("run to end")
+    // task::schedule();
 }
 
 fn print_kernel_info() {
