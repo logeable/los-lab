@@ -65,6 +65,24 @@ pub fn process_trap(ctx: &mut TrapContext) {
                 );
                 task::exit_current_task_and_schedule()
             }
+            scause::Exception::InstructionFault => {
+                println!(
+                    "[TRAP] instruction fault: {:#x} {:#x} {:?}",
+                    stval,
+                    sepc::read(),
+                    ctx
+                );
+                task::exit_current_task_and_schedule()
+            }
+            scause::Exception::InstructionPageFault => {
+                println!(
+                    "[TRAP] instruction page fault: {:#x} {:#x} {:?}",
+                    stval,
+                    sepc::read(),
+                    ctx
+                );
+                task::exit_current_task_and_schedule()
+            }
             _ => {
                 unimplemented!("Exception handler not implemented: {:?}", ex);
             }

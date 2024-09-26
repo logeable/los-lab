@@ -3,6 +3,7 @@ mod manager;
 
 pub use manager::exit_current_task_and_schedule;
 pub use manager::get_current_task_name;
+pub use manager::schedule;
 pub use manager::suspend_current_task_and_schedule;
 
 #[derive(Debug, Clone, Copy)]

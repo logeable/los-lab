@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::{fs::File, io::Write, path::PathBuf, process::Command};
 use uuid::Uuid;
 
-const BASE_ADDRESS: usize = 0x80800000;
+const BASE_ADDRESS: usize = 0x80600000;
 const APP_MAX_SIZE: usize = 0x20000;
 
 pub fn build(build_args: &BuildArgs) -> anyhow::Result<()> {

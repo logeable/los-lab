@@ -34,9 +34,7 @@ gdb: ${KERNEL_BIN}
 		-ex 'file ${FULL_KERNEL}' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote 127.0.0.1:1234' \
-		-ex 'b *${KERNEL_BASE_ADDRESS}' \
-		-ex 'b los::mm::memory_space::MemorySpace::new_kernel' \
-		-ex 'b los::mm::memory_space::MemorySpace::add_identical_area'
+		-ex 'b *${KERNEL_BASE_ADDRESS}'
 	pkill -l -n ${QEMU} 
 
 .PHONY: dtb.out

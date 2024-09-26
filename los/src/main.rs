@@ -28,8 +28,7 @@ fn rust_main() {
 
     print_kernel_info();
 
-    panic!("run to end")
-    // task::schedule();
+    task::schedule();
 }
 
 fn print_kernel_info() {

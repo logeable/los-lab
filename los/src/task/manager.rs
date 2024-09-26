@@ -11,11 +11,11 @@ const USER_STACK_SIZE: usize = 4096 * 4;
 const KERNEL_STACK_SIZE: usize = 4096 * 4;
 pub(super) const MAX_APPS: usize = 32;
 
-static KERNEL_STACKS: [KernelStack; MAX_APPS] = [KernelStack {
+static mut KERNEL_STACKS: [KernelStack; MAX_APPS] = [KernelStack {
     data: [0; KERNEL_STACK_SIZE],
 }; MAX_APPS];
 
-static USER_STACKS: [UserStack; MAX_APPS] = [UserStack {
+static mut USER_STACKS: [UserStack; MAX_APPS] = [UserStack {
     data: [0; USER_STACK_SIZE],
 }; MAX_APPS];
 
@@ -44,16 +44,18 @@ impl TaskManager {
         for i in 0..number_of_task {
             let app = app_loader.get_app_info(i).expect("app index should valid");
 
-            let user_sp = USER_STACKS[i].get_sp();
-            let trap_context =
-                KERNEL_STACKS[i].push_trap_context(TrapContext::init(app.entry, user_sp));
-            let kernel_sp = trap_context as usize;
+            unsafe {
+                let user_sp = USER_STACKS[i].get_sp();
+                let trap_context =
+                    KERNEL_STACKS[i].push_trap_context(TrapContext::init(app.entry, user_sp));
+                let kernel_sp = trap_context as usize;
 
-            tasks[i] = Some(TaskControlBlock::init(
-                app.name,
-                _s_trap_return as usize,
-                kernel_sp,
-            ));
+                tasks[i] = Some(TaskControlBlock::init(
+                    app.name,
+                    _s_trap_return as usize,
+                    kernel_sp,
+                ));
+            }
         }
         TaskManager {
             tasks,
