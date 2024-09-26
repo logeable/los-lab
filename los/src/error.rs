@@ -3,7 +3,8 @@ use core::fmt::Debug;
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum KernelError {
-    InvalidSyscallId(usize),
+    InvalidSyscallId(&'static str),
+    AllocFrame(&'static str),
 }
 
 impl core::error::Error for KernelError {}

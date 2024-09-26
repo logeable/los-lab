@@ -1,4 +1,4 @@
-RUSTSBI_QEMU ?= ../target/rustsbi-qemu.bin
+RUSTSBI_QEMU ?= target/rustsbi-qemu.bin
 BUILD_MODE ?= release
 
 TARGET = riscv64gc-unknown-none-elf

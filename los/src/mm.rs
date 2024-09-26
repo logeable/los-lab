@@ -1,16 +1,15 @@
-use buddy_system_allocator::LockedHeap;
+mod address;
+mod frame_allocator;
+mod heap;
+mod page_table;
 
-const HEAP_SIZE: usize = 1 << 26;
-
-#[global_allocator]
-static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::empty();
-
-static HEAP_SPACE: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+pub use frame_allocator::alloc as frame_alloc;
+pub use frame_allocator::Frame;
+pub use page_table::Flags as PageTableFlags;
+pub use page_table::PageTable;
+pub use page_table::PageTableEntry;
 
 pub fn init() {
-    unsafe {
-        HEAP_ALLOCATOR
-            .lock()
-            .init(HEAP_SPACE.as_ptr() as usize, HEAP_SIZE)
-    };
+    heap::init();
+    frame_allocator::init();
 }

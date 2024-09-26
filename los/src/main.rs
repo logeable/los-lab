@@ -1,5 +1,9 @@
 #![no_std]
 #![no_main]
+#![feature(alloc_error_handler)]
+extern crate alloc;
+
+mod config;
 mod console;
 mod error;
 mod mm;
@@ -23,7 +27,6 @@ fn rust_main() {
     timer::init();
 
     print_kernel_info();
-
     task::schedule();
 }
 

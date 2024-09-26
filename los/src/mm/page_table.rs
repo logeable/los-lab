@@ -1,0 +1,172 @@
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use bitflags::bitflags;
+
+use crate::error;
+
+use super::{
+    address::{PhysPageNum, VirtPageNum},
+    frame_alloc, Frame,
+};
+
+bitflags! {
+    #[derive(Clone, Copy)]
+    pub struct Flags: u8 {
+        const V = 1 << 0;
+        const R = 1 << 1;
+        const W = 1 << 2;
+        const X = 1 << 3;
+        const U = 1 << 4;
+        const G = 1 << 5;
+        const A = 1 << 6;
+        const D = 1 << 7;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PageTableEntry {
+    pub bits: usize,
+}
+
+impl PageTableEntry {
+    pub fn new(ppn: PhysPageNum, flags: Flags) -> Self {
+        let bits = ppn.0 << 10 | flags.bits() as usize;
+
+        Self { bits }
+    }
+
+    pub fn empty() -> Self {
+        Self { bits: 0 }
+    }
+
+    pub fn ppn(&self) -> PhysPageNum {
+        (self.bits >> 10).into()
+    }
+
+    pub fn flags(&self) -> Flags {
+        Flags::from_bits_retain(self.bits as u8)
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.flags().intersects(Flags::V)
+    }
+}
+
+#[derive(Debug)]
+pub struct PageTable {
+    root_ppn: PhysPageNum,
+    frames: Vec<Frame>,
+}
+
+impl PageTable {
+    pub fn new() -> error::Result<Self> {
+        match frame_alloc() {
+            Some(frame) => Ok(Self {
+                root_ppn: frame.ppn,
+                frames: vec![frame],
+            }),
+            None => Err(error::KernelError::AllocFrame("new root page table failed")),
+        }
+    }
+
+    pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: Flags) -> error::Result<()> {
+        let l3_ppn = self.root_ppn;
+        let l3_ptes = unsafe { l3_ppn.get_pte_array_mut() };
+        let l3_index = vpn.get_level_3_index();
+        let pte = &mut l3_ptes[l3_index];
+        if !pte.is_valid() {
+            match super::frame_alloc() {
+                Some(frame) => {
+                    *pte = PageTableEntry::new(frame.ppn, Flags::V);
+                    self.frames.push(frame);
+                }
+                None => {
+                    return Err(error::KernelError::AllocFrame(
+                        "allocate level2 page table frame failed",
+                    ))
+                }
+            }
+        }
+
+        let l2_ppn = pte.ppn();
+        let l2_ptes = unsafe { l2_ppn.get_pte_array_mut() };
+        let l2_index = vpn.get_level_2_index();
+        let pte = &mut l2_ptes[l2_index];
+        if !pte.is_valid() {
+            match super::frame_alloc() {
+                Some(frame) => {
+                    *pte = PageTableEntry::new(frame.ppn, Flags::V);
+                    self.frames.push(frame);
+                }
+                None => {
+                    return Err(error::KernelError::AllocFrame(
+                        "allocate level1 page table frame failed",
+                    ))
+                }
+            }
+        }
+
+        let l1_ppn = pte.ppn();
+        let l1_ptes = unsafe { l1_ppn.get_pte_array_mut() };
+        let l1_index = vpn.get_level_1_index();
+        let pte = &mut l1_ptes[l1_index];
+        if !pte.is_valid() {
+            *pte = PageTableEntry::new(ppn, flags | Flags::V);
+        }
+
+        Ok(())
+    }
+
+    pub fn unmap(&mut self, vpn: VirtPageNum) {
+        match self.find_pte_mut(vpn) {
+            Some(pte) => {
+                let pte = unsafe { &mut *pte };
+                *pte = PageTableEntry::empty();
+            }
+            None => panic!("unmap a none page {:?}", vpn),
+        }
+    }
+
+    fn find_pte_mut(&self, vpn: VirtPageNum) -> Option<*mut PageTableEntry> {
+        let ppn = self.root_ppn;
+        let l3_ptes = unsafe { ppn.get_pte_array_mut() };
+        let l3_index = vpn.get_level_3_index();
+        let pte = l3_ptes[l3_index];
+        if !pte.is_valid() {
+            return None;
+        }
+
+        let ppn = pte.ppn();
+        let l2_ptes = unsafe { ppn.get_pte_array_mut() };
+        let l2_index = vpn.get_level_2_index();
+        let pte = l2_ptes[l2_index];
+        if !pte.is_valid() {
+            return None;
+        }
+
+        let ppn = pte.ppn();
+        let l1_ptes = unsafe { ppn.get_pte_array_mut() };
+        let l1_index = vpn.get_level_1_index();
+        let pte = &mut l1_ptes[l1_index];
+        if !pte.is_valid() {
+            return None;
+        }
+
+        Some(pte)
+    }
+
+    pub fn from_satp(satp: usize) -> Self {
+        Self {
+            root_ppn: PhysPageNum::from(satp),
+            frames: Vec::new(),
+        }
+    }
+
+    pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
+        self.find_pte_mut(vpn).map(|pte| unsafe { *pte })
+    }
+
+    pub fn root_ppn(&self) -> PhysPageNum {
+        self.root_ppn
+    }
+}

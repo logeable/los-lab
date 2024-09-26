@@ -9,6 +9,7 @@ sbi-rt = { version = "0.0.3", features = ["legacy"] }
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 spin = "0.9.8"
 buddy_system_allocator = "0.10.0"
+bitflags = "2.6.0"
 
 [profile.dev]
 panic = "abort"
