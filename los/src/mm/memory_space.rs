@@ -1,17 +1,14 @@
-use core::{any::Any, arch::asm};
-
-use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
-use bitflags::bitflags;
-use elf::endian::AnyEndian;
-use riscv::register::satp;
-
-use crate::{config::MEMORY_END, error, mm::address::PAGE_SIZE, println};
-
 use super::{
     address::{PhysPageNum, VPNRange, VirtAddr, VirtPageNum},
     frame_allocator::{self, Frame},
     page_table::{Flags, PageTable},
 };
+use crate::{config::MEMORY_END, error, mm::address::PAGE_SIZE, println};
+use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
+use bitflags::bitflags;
+use core::arch::asm;
+use elf::endian::AnyEndian;
+use riscv::register::satp;
 
 struct MapArea {
     vpn_range: VPNRange,
@@ -198,7 +195,9 @@ impl MemorySpace {
             .unwrap()
             .iter()
             .enumerate()
-            .for_each(|(i, s)| println!("{:04}: {:?}", i, s));
+            .for_each(|(i, s)| {
+                println!("{:04}: {:?}", i, s);
+            });
 
         todo!()
     }

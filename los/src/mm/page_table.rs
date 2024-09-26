@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use alloc::{string::ToString, vec};
 use bitflags::bitflags;
 
-use crate::{error, println};
+use crate::error;
 
 use super::{
     address::{PhysPageNum, VirtPageNum},
