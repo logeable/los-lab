@@ -1,11 +1,22 @@
-use crate::timer::{self, TimeVal};
+use crate::{
+    println, task,
+    timer::{self, TimeVal},
+};
 
 pub fn sys_gettimeofday(tp: *mut TimeVal, _tzp: usize) -> isize {
-    let tp = unsafe { &mut *tp };
-    let t = timer::get_time();
+    match task::translate_by_current_task_pagetable(tp as usize) {
+        Ok(pa) => {
+            let tp = unsafe { &mut *(pa as *mut TimeVal) };
+            let t = timer::get_time();
 
-    tp.sec = t.sec;
-    tp.usec = t.usec;
+            tp.sec = t.sec;
+            tp.usec = t.usec;
 
-    0
+            0
+        }
+        Err(err) => {
+            println!("translate failed: {:?}", err);
+            return -1;
+        }
+    }
 }

@@ -1,3 +1,5 @@
+use core::fmt::Debug;
+
 use alloc::vec::Vec;
 use alloc::{string::ToString, vec};
 use bitflags::bitflags;
@@ -10,7 +12,7 @@ use super::{
 };
 
 bitflags! {
-    #[derive(Clone, Copy)]
+    #[derive(Debug, Clone, Copy)]
     pub struct Flags: u8 {
         const V = 1 << 0;
         const R = 1 << 1;
@@ -23,7 +25,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PageTableEntry {
     pub bits: usize,
 }
@@ -49,6 +51,32 @@ impl PageTableEntry {
 
     pub fn is_valid(&self) -> bool {
         self.flags().intersects(Flags::V)
+    }
+
+    pub fn is_writable(&self) -> bool {
+        self.flags().intersects(Flags::W)
+    }
+
+    pub fn is_readable(&self) -> bool {
+        self.flags().intersects(Flags::R)
+    }
+
+    pub fn is_executable(&self) -> bool {
+        self.flags().intersects(Flags::X)
+    }
+
+    pub fn is_user(&self) -> bool {
+        self.flags().intersects(Flags::U)
+    }
+}
+
+impl Debug for PageTableEntry {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PageTableEntry")
+            .field("bits", &self.bits)
+            .field("ppn", &self.ppn())
+            .field("flags", &self.flags())
+            .finish()
     }
 }
 

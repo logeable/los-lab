@@ -3,13 +3,18 @@ use super::{
     frame_allocator::{self, Frame},
     page_table::{Flags, PageTable},
 };
-use crate::{config::MEMORY_END, error, mm::address::PAGE_SIZE, println};
+use crate::{
+    config::{MEMORY_END, USER_STACK_SIZE},
+    error,
+    mm::address::{PhysAddr, PAGE_SIZE},
+};
 use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
 use bitflags::bitflags;
 use core::arch::asm;
 use elf::endian::AnyEndian;
 use riscv::register::satp;
 
+#[derive(Debug)]
 struct MapArea {
     vpn_range: VPNRange,
     leaf_frames: BTreeMap<VirtPageNum, Frame>,
@@ -47,7 +52,7 @@ impl MapArea {
                         }
                         None => {
                             return Err(error::KernelError::AllocFrame(
-                                "alloc frame failed to map area".to_string(),
+                                "alloc leaf frame failed".to_string(),
                             ));
                         }
                     };
@@ -85,7 +90,7 @@ pub enum MapType {
 }
 
 bitflags! {
-    #[derive(Clone, Copy)]
+    #[derive(Debug, Clone, Copy)]
     pub struct MapPermission:u8 {
         const R = 1 << 1;
         const W = 1 << 2;
@@ -100,6 +105,7 @@ impl From<MapPermission> for Flags {
     }
 }
 
+#[derive(Debug)]
 pub struct MemorySpace {
     l3_page_table: PageTable,
     areas: Vec<MapArea>,
@@ -112,8 +118,8 @@ impl MemorySpace {
                 l3_page_table,
                 areas: Vec::new(),
             }),
-            Err(err) => Err(error::KernelError::CreateMemorySpace(format!(
-                "new bare memory space failed: {:?}",
+            Err(err) => Err(error::KernelError::CreatePagetable(format!(
+                "create pagetable for bare memory space failed: {:?}",
                 err
             ))),
         }
@@ -136,6 +142,10 @@ impl MemorySpace {
 
         let mut mem_space =
             Self::new_bare().expect("create bare memory space for kernel must succeed");
+
+        mem_space
+            .add_trampoline_area()
+            .expect("add trampoline area must succeed");
 
         mem_space
             .add_identical_area(
@@ -188,18 +198,100 @@ impl MemorySpace {
         mem_space
     }
 
-    pub fn new_elf(elf_data: &[u8]) -> error::Result<Self> {
-        let file = elf::ElfBytes::<AnyEndian>::minimal_parse(elf_data).unwrap();
+    pub fn new_elf(elf_data: &[u8]) -> error::Result<(Self, usize, usize)> {
+        let mut mem_space = Self::new_bare().map_err(|e| {
+            error::KernelError::CreateMemorySpace(format!("create memory space failed: {:?}", e))
+        })?;
 
-        file.segments()
-            .unwrap()
+        let mut max_vpn = VirtPageNum(0);
+
+        let file = elf::ElfBytes::<AnyEndian>::minimal_parse(elf_data)
+            .map_err(|e| error::KernelError::ParseELF(format!("parse elf failed: {:?}", e)))?;
+        for segment in file
+            .segments()
+            .ok_or(error::KernelError::ELFProgramHeader("".to_string()))?
             .iter()
-            .enumerate()
-            .for_each(|(i, s)| {
-                println!("{:04}: {:?}", i, s);
-            });
+            .filter(|v| v.p_type == elf::abi::PT_LOAD)
+        {
+            let data = file.segment_data(&segment).map_err(|e| {
+                error::KernelError::ELFSegmentData(format!("read segment data failed: {:?}", e))
+            })?;
+            let start_va = VirtAddr(segment.p_vaddr as usize);
+            let end_va = start_va + segment.p_memsz as usize;
+            let mut map_perm = MapPermission::U;
+            if segment.p_flags & elf::abi::PF_R != 0 {
+                map_perm |= MapPermission::R;
+            }
+            if segment.p_flags & elf::abi::PF_W != 0 {
+                map_perm |= MapPermission::W;
+            }
+            if segment.p_flags & elf::abi::PF_X != 0 {
+                map_perm |= MapPermission::X;
+            }
+            let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
+            let end_vpn = map_area.vpn_range.end();
+            if end_vpn > max_vpn {
+                max_vpn = end_vpn;
+            }
+            mem_space
+                .add_map_area_with_data(map_area, data)
+                .map_err(|e| {
+                    error::KernelError::AddMapArea(format!(
+                        "add elf segment (va: {:#x}) failed: {:?}",
+                        segment.p_vaddr, e
+                    ))
+                })?;
+        }
 
-        todo!()
+        mem_space.add_trampoline_area().map_err(|e| {
+            error::KernelError::AddMapArea(format!("add trampoline map area failed: {:?}", e))
+        })?;
+
+        let trap_context_start_va = trap_context_va();
+        mem_space
+            .add_framed_area(
+                trap_context_start_va,
+                trap_context_start_va + PAGE_SIZE,
+                MapPermission::R | MapPermission::W,
+            )
+            .map_err(|e| {
+                error::KernelError::AddMapArea(format!("add trap context map area failed: {:?}", e))
+            })?;
+
+        let user_stack_start_va = VirtPageNum(max_vpn.0 + 1).into();
+        let user_stack_end_va = user_stack_start_va + USER_STACK_SIZE;
+        mem_space
+            .add_framed_area(
+                user_stack_start_va,
+                user_stack_end_va,
+                MapPermission::U | MapPermission::R | MapPermission::W,
+            )
+            .map_err(|e| {
+                error::KernelError::AddMapArea(format!("add user stack map area failed: {:?}", e))
+            })?;
+        Ok((
+            mem_space,
+            user_stack_end_va.into(),
+            file.ehdr.e_entry as usize,
+        ))
+    }
+
+    fn add_trampoline_area(&mut self) -> error::Result<()> {
+        extern "C" {
+            fn strampoline();
+            fn etrampoline();
+        }
+
+        assert!(strampoline as usize % PAGE_SIZE == 0);
+        assert_eq!(etrampoline as usize - strampoline as usize, PAGE_SIZE);
+
+        let ppn = PhysAddr::from(strampoline as usize).floor_ppn();
+        let vpn = trampoline_va().floor_vpn();
+
+        self.l3_page_table
+            .map(vpn, ppn, (MapPermission::R | MapPermission::X).into())?;
+
+        Ok(())
     }
 
     fn add_map_area(&mut self, mut map_area: MapArea) -> error::Result<()> {
@@ -257,4 +349,16 @@ impl MemorySpace {
             asm!("sfence.vma");
         }
     }
+
+    pub fn page_table(&self) -> &PageTable {
+        &self.l3_page_table
+    }
+}
+
+pub fn trampoline_va() -> VirtAddr {
+    VirtAddr::HIGH_HALF_MAX - PAGE_SIZE + 1
+}
+
+pub fn trap_context_va() -> VirtAddr {
+    trampoline_va() - PAGE_SIZE
 }

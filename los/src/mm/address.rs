@@ -1,4 +1,4 @@
-use core::mem;
+use core::{mem, ops};
 
 use super::page_table::PageTableEntry;
 
@@ -28,6 +28,12 @@ impl From<usize> for PhysAddr {
     }
 }
 
+impl From<PhysAddr> for usize {
+    fn from(value: PhysAddr) -> Self {
+        value.0
+    }
+}
+
 impl From<PhysPageNum> for PhysAddr {
     fn from(value: PhysPageNum) -> Self {
         Self(value.0 << PAGE_OFFSET_WIDTH)
@@ -38,12 +44,37 @@ impl From<PhysPageNum> for PhysAddr {
 pub struct VirtAddr(pub usize);
 
 impl VirtAddr {
+    pub const HIGH_HALF_MAX: Self = Self(u64::MAX as usize);
+    pub const LOW_HALF_MAX: Self = Self((1 << 38) - 1);
+
     pub fn floor_vpn(&self) -> VirtPageNum {
         VirtPageNum(self.0 / PAGE_SIZE)
     }
 
     pub fn ceil_vpn(&self) -> VirtPageNum {
-        VirtPageNum((self.0 + PAGE_SIZE - 1) / PAGE_SIZE)
+        VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
+    }
+}
+
+impl From<VirtPageNum> for VirtAddr {
+    fn from(value: VirtPageNum) -> Self {
+        Self(value.0 << PAGE_OFFSET_WIDTH)
+    }
+}
+
+impl ops::Sub<usize> for VirtAddr {
+    type Output = Self;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
+impl ops::Add<usize> for VirtAddr {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
     }
 }
 
@@ -82,7 +113,8 @@ impl PhysPageNum {
     }
 
     pub unsafe fn get_mut<T>(&self) -> &mut T {
-        unsafe { &mut *(self.0 as *mut T) }
+        let start = PhysAddr::from(*self).0;
+        unsafe { &mut *(start as *mut T) }
     }
 }
 
@@ -111,7 +143,7 @@ impl VirtPageNum {
 
 impl From<usize> for VirtPageNum {
     fn from(value: usize) -> Self {
-        Self(value & ((1 << VPN_WIDTH_SV39) - 1))
+        Self(value)
     }
 }
 
@@ -128,6 +160,14 @@ impl VPNRange {
 
     pub fn memory_size(&self) -> usize {
         self.into_iter().count() * PAGE_SIZE
+    }
+
+    pub fn start(&self) -> VirtPageNum {
+        self.start
+    }
+
+    pub fn end(&self) -> VirtPageNum {
+        self.end
     }
 }
 

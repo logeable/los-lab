@@ -1,22 +1,23 @@
-use crate::{task::loader::AppLoader, trap::TrapContext};
-
 use super::{TaskContext, TaskControlBlock, TaskStatus};
+use crate::{
+    error,
+    mm::{self, address},
+    task::loader::AppLoader,
+    trap::{trap_return, TrapContext},
+};
+use alloc::{format, vec::Vec};
 use core::{arch::global_asm, mem};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 global_asm!(include_str!("switch.asm"));
 
-const USER_STACK_SIZE: usize = 4096 * 4;
 const KERNEL_STACK_SIZE: usize = 4096 * 4;
-pub(super) const MAX_APPS: usize = 32;
+
+pub const MAX_APPS: usize = 16;
 
 static mut KERNEL_STACKS: [KernelStack; MAX_APPS] = [KernelStack {
     data: [0; KERNEL_STACK_SIZE],
-}; MAX_APPS];
-
-static mut USER_STACKS: [UserStack; MAX_APPS] = [UserStack {
-    data: [0; USER_STACK_SIZE],
 }; MAX_APPS];
 
 lazy_static! {
@@ -28,34 +29,34 @@ lazy_static! {
 }
 
 pub struct TaskManager {
-    tasks: [Option<TaskControlBlock>; MAX_APPS],
+    tasks: Vec<TaskControlBlock>,
     current_task_index: Option<usize>,
 }
 
 impl TaskManager {
     fn new() -> Self {
-        extern "C" {
-            fn _s_trap_return() -> !;
-        }
+        let app_loader = AppLoader::load();
+        let mut tasks = Vec::new();
+        for (i, app) in app_loader.apps().iter().enumerate() {
+            let (mem_space, user_sp, entry) =
+                mm::build_app_mem_space(app.elf_data).expect("build app mem space must succeed");
 
-        let app_loader = AppLoader::new();
-        let number_of_task = app_loader.get_number_of_app();
-        let mut tasks = [None; MAX_APPS];
-        for i in 0..number_of_task {
-            let app = app_loader.get_app_info(i).expect("app index should valid");
+            let trap_context_va = mm::trap_context_va();
 
-            unsafe {
-                let user_sp = USER_STACKS[i].get_sp();
-                let trap_context =
-                    KERNEL_STACKS[i].push_trap_context(TrapContext::init(app.entry, user_sp));
-                let kernel_sp = trap_context as usize;
-
-                tasks[i] = Some(TaskControlBlock::init(
-                    app.name,
-                    _s_trap_return as usize,
-                    kernel_sp,
-                ));
-            }
+            let trap_context_ppn = mem_space
+                .page_table()
+                .translate(trap_context_va.floor_vpn())
+                .unwrap()
+                .ppn();
+            let kernel_sp = unsafe { KERNEL_STACKS[i].get_sp() };
+            let trap_context_dest = unsafe { trap_context_ppn.get_mut::<TrapContext>() };
+            *trap_context_dest = TrapContext::init(entry, user_sp, kernel_sp);
+            tasks.push(TaskControlBlock::init(
+                app.name,
+                trap_return as usize,
+                kernel_sp,
+                mem_space,
+            ));
         }
         TaskManager {
             tasks,
@@ -73,20 +74,19 @@ impl TaskManager {
         let mut found_idx = None;
         for i in start_idx..(start_idx + len) {
             let idx = i % len;
-            if let Some(task) = &mut self.tasks[idx] {
-                if task.status == TaskStatus::Ready {
-                    found_idx = Some(idx);
-                    break;
-                }
+            let task = &mut self.tasks[idx];
+            if task.status == TaskStatus::Ready {
+                found_idx = Some(idx);
+                break;
             }
         }
 
-        found_idx.map(|idx| (idx, self.tasks[idx].as_mut().unwrap()))
+        found_idx.map(|idx| (idx, self.tasks.get_mut(idx).unwrap()))
     }
 
     fn get_current_mut(&mut self) -> Option<&mut TaskControlBlock> {
         match self.current_task_index {
-            Some(idx) => self.tasks[idx].as_mut(),
+            Some(idx) => self.tasks.get_mut(idx),
             None => None,
         }
     }
@@ -150,18 +150,6 @@ impl KernelStack {
     }
 }
 
-#[repr(align(4096))]
-#[derive(Clone, Copy)]
-struct UserStack {
-    data: [u8; USER_STACK_SIZE],
-}
-
-impl UserStack {
-    fn get_sp(&self) -> usize {
-        self.data.as_ptr() as usize + USER_STACK_SIZE
-    }
-}
-
 pub fn exit_current_task_and_schedule() -> ! {
     TASK_MANAGER.lock().get_current_mut().unwrap().status = TaskStatus::Exited;
     schedule();
@@ -174,6 +162,55 @@ pub fn suspend_current_task_and_schedule() {
     schedule();
 }
 
-pub fn get_current_task_name() -> &'static str {
-    TASK_MANAGER.lock().get_current_mut().unwrap().name
+pub fn get_current_task_name() -> Option<&'static str> {
+    TASK_MANAGER.lock().get_current_mut().map(|tcp| tcp.name)
+}
+
+pub fn get_current_task_mut() -> Option<*mut TaskControlBlock> {
+    TASK_MANAGER
+        .lock()
+        .get_current_mut()
+        .map(|v| v as *mut TaskControlBlock)
+}
+
+pub fn get_current_task_trap_context() -> Option<*mut TrapContext> {
+    let tcb = match get_current_task_mut() {
+        Some(tcb) => unsafe { &*tcb },
+        None => return None,
+    };
+    let trap_context_va = mm::trap_context_va();
+    let trap_context_ppn = tcb
+        .mem_space
+        .page_table()
+        .translate(trap_context_va.floor_vpn())
+        .unwrap()
+        .ppn();
+    let trap_context = unsafe { trap_context_ppn.get_mut::<TrapContext>() };
+
+    Some(trap_context)
+}
+
+pub fn translate_by_current_task_pagetable(va: usize) -> error::Result<usize> {
+    let vpn = address::VirtAddr::from(va).floor_vpn();
+
+    let name = get_current_task_name().expect("current task must exist");
+    match TASK_MANAGER
+        .lock()
+        .get_current_mut()
+        .expect("current task must exist")
+        .mem_space
+        .page_table()
+        .translate(vpn)
+    {
+        Some(pte) => {
+            let pa = address::PhysAddr::from(pte.ppn());
+            return Ok(usize::from(pa) + (va % address::PAGE_SIZE));
+        }
+        None => {
+            return Err(error::KernelError::Translate(format!(
+                "translate address {:#x} for user space {:?} failed",
+                va, name
+            )));
+        }
+    }
 }

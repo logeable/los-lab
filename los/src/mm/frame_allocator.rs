@@ -16,6 +16,12 @@ pub fn init() {
 
     let start = PhysAddr::from(ekernel as usize);
     let end = PhysAddr::from(MEMORY_END);
+    assert!(
+        start.0 < end.0,
+        "no free frame, memory not enough, ekernel: {:#x}",
+        ekernel as usize
+    );
+
     FRAME_ALLOCATOR
         .lock()
         .init(start.ceil_ppn(), end.floor_ppn());
@@ -27,6 +33,10 @@ pub fn alloc() -> Option<Frame> {
 
 pub fn dealloc(ppn: PhysPageNum) {
     FRAME_ALLOCATOR.lock().dealloc(ppn);
+}
+
+pub fn free_frames_count() -> usize {
+    FRAME_ALLOCATOR.lock().free_frames_count()
 }
 
 pub struct StackFrameAllocator {
@@ -72,6 +82,10 @@ impl StackFrameAllocator {
         }
 
         self.recycled.push(ppn.0);
+    }
+
+    pub fn free_frames_count(&self) -> usize {
+        self.recycled.len() + self.end - self.current
     }
 }
 

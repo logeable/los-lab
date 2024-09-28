@@ -8,12 +8,11 @@
     ld x\i, \i*8(sp)
 .endm
 
-    .section .text
+    .section .text.trampoline
     .align 2
     .globl _s_trap_enter
 _s_trap_enter:
     csrrw sp, sscratch, sp
-    add sp, sp, -34*8
 
     .set i, 0
     .rept 32
@@ -28,13 +27,28 @@ _s_trap_enter:
     csrr t0, sepc
     sd t0, 33*8(sp)
 
-    mv a0, sp
-    call process_trap
+    # kernel_satp
+    ld t0, 34*8(sp) 
+    # kernel_sp
+    ld t1, 35*8(sp)
+    # trap_handler
+    ld t2, 36*8(sp)
+
+    csrw satp, t0
+    sfence.vma
+
+    mv sp, t1
+    jr t2
 
     .globl _s_trap_return
 _s_trap_return:
-    ld t0, 2*8(sp)
-    csrw sscratch, t0
+    # a0: pointer to trap context
+    # a1: app satp
+    csrw sscratch, a0
+    csrw satp, a1
+    sfence.vma
+
+    mv sp, a0
     ld t0, 32*8(sp)
     csrw sstatus, t0
     ld t0, 33*8(sp)
@@ -47,6 +61,5 @@ _s_trap_return:
         .set i, i+1
     .endr
 
-    add sp, sp, 34*8
-    csrrw sp, sscratch, sp
+    ld sp, 2*8(sp)
     sret

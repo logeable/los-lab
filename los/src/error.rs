@@ -7,10 +7,16 @@ use alloc::string::String;
 pub enum KernelError {
     InvalidSyscallId(String),
     AllocFrame(String),
+    CreatePagetable(String),
     CreateMemorySpace(String),
     PagetableMap(String),
     MapArea(String),
+    AddMapArea(String),
     VpnTranslate(String),
+    ParseELF(String),
+    ELFProgramHeader(String),
+    ELFSegmentData(String),
+    Translate(String),
 }
 
 impl core::error::Error for KernelError {}
