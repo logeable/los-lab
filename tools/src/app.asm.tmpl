@@ -6,14 +6,15 @@ _app_data:
 	.quad app_{{loop.index0}}_start
 	.quad app_{{loop.index0}}_end
 	.quad app_{{loop.index0}}_name
-	.quad {{app.entry}}
 {%- endfor %}
 	.string "{{uuid}}"
 
-{%- for app in apps %}
+{% for app in apps %}
+	.align 3
 app_{{loop.index0}}_start:
 	.incbin "{{app.bin_path}}"
 app_{{loop.index0}}_end:
 app_{{loop.index0}}_name:
 	.string "{{app.name}}"
-{%- endfor %}
+
+{% endfor %}

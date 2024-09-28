@@ -3,34 +3,16 @@ use anyhow::{bail, Context};
 use minijinja::{context, Environment, UndefinedBehavior};
 use regex::Regex;
 use serde::Serialize;
-use std::{fs::File, io::Write, path::PathBuf, process::Command};
+use std::{fs::File, path::PathBuf, process::Command};
 use uuid::Uuid;
-
-const BASE_ADDRESS: usize = 0x80600000;
-const APP_MAX_SIZE: usize = 0x20000;
 
 pub fn build(build_args: &BuildArgs) -> anyhow::Result<()> {
     let user_path = &build_args.user_args.user_crate_dir;
 
     let targets = get_bin_targets(user_path).context("get bin targets failed")?;
 
-    let mut env = Environment::new();
-    env.set_undefined_behavior(UndefinedBehavior::Strict);
-    env.add_template("linker.ld", include_str!("linker.ld.tmpl"))
-        .context("add template failed")?;
-    let tmpl = env.get_template("linker.ld").unwrap();
-
     let user_path = PathBuf::from(user_path);
-    let linker_ld_script_path = user_path.join("src").join("linker.ld");
-    for (i, target) in targets.iter().enumerate() {
-        let address = format!("{:#x}", BASE_ADDRESS + APP_MAX_SIZE * i);
-        let content = tmpl.render(context!(address)).context("render failed")?;
-
-        File::create(&linker_ld_script_path)
-            .unwrap()
-            .write_all(content.as_bytes())
-            .context("write linker.ld failed")?;
-
+    for target in targets.iter() {
         let mut cmd = Command::new("cargo");
         let cmd = cmd.arg("build").arg("--bin").arg(target);
         if build_args.user_args.release {
@@ -76,11 +58,8 @@ pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
         if !bin_path.exists() {
             bail!("{:?} not exists", bin_path);
         }
-        let dest_path = bin_path.with_extension("bin");
-        let dest = dest_path.to_str().unwrap();
-        objcopy_to_bin(bin_path.to_str().unwrap(), dest).context("objcopy to bin failed")?;
 
-        bins.push(dest_path);
+        bins.push(bin_path);
     }
 
     let mut bins: Vec<_> = bins
@@ -106,24 +85,7 @@ pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
         println!("{:?}", name);
     }
 
-    gen_app_asm2(bins, &asm_args.app_asm_path).context("gen app asm failed")?;
-
-    Ok(())
-}
-
-fn objcopy_to_bin(src: &str, dest: &str) -> anyhow::Result<()> {
-    let output = Command::new("riscv64-unknown-elf-objcopy")
-        .arg("--strip-all")
-        .arg(src)
-        .arg("-O")
-        .arg("binary")
-        .arg(dest)
-        .output()
-        .context("execute command failed")?;
-
-    if !output.status.success() {
-        bail!("status is not ok");
-    }
+    gen_app_asm(bins, &asm_args.app_asm_path).context("gen app asm failed")?;
 
     Ok(())
 }
@@ -150,7 +112,7 @@ fn get_bin_targets(user_path: &str) -> anyhow::Result<Vec<String>> {
     Ok(targets)
 }
 
-fn gen_app_asm2(bins: Vec<String>, dest: &str) -> anyhow::Result<()> {
+fn gen_app_asm(bins: Vec<String>, dest: &str) -> anyhow::Result<()> {
     let mut env = Environment::new();
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.add_template("app.asm", include_str!("./app.asm.tmpl"))
@@ -159,20 +121,14 @@ fn gen_app_asm2(bins: Vec<String>, dest: &str) -> anyhow::Result<()> {
 
     let apps: Vec<_> = bins
         .iter()
-        .enumerate()
-        .map(|(idx, bin)| {
+        .map(|bin| {
             let name = PathBuf::from(&bin)
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap()
                 .to_string();
             let bin_path = bin.clone();
-            let entry = format!("{:#x}", BASE_ADDRESS + APP_MAX_SIZE * idx);
-            AppInfo {
-                name,
-                bin_path,
-                entry,
-            }
+            AppInfo { name, bin_path }
         })
         .collect();
 
@@ -193,5 +149,4 @@ fn gen_app_asm2(bins: Vec<String>, dest: &str) -> anyhow::Result<()> {
 struct AppInfo {
     name: String,
     bin_path: String,
-    entry: String,
 }
