@@ -1,5 +1,5 @@
 RUSTSBI_QEMU ?= target/rustsbi-qemu.bin
-BUILD_MODE ?= release
+BUILD_MODE ?= debug
 
 TARGET = riscv64gc-unknown-none-elf
 BINTOOLS_PREFIX = riscv64-unknown-elf-
@@ -31,6 +31,7 @@ gdb: ${KERNEL_BIN}
 	${QEMU} ${qemu_opts} -s -S &
 	@sleep 1
 	riscv64-elf-gdb \
+		- q \
 		-ex 'file ${FULL_KERNEL}' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote 127.0.0.1:1234' \
@@ -69,3 +70,10 @@ objdump-bin: ${FULL_KERNEL_BIN}
 
 hexdump-bin: ${FULL_KERNEL_BIN}
 	hexdump -C $<
+
+test-targets:
+	cargo test --no-run --message-format=json |jq -r "select(.profile.test == true) | .filenames[]"
+
+test-one:
+	$(eval FULL_KERNEL = $(TEST_TARGET))
+	${QEMU} ${qemu_opts}

@@ -1,6 +1,10 @@
 #![no_std]
 #![no_main]
 #![feature(alloc_error_handler)]
+#![feature(custom_test_frameworks)]
+#![test_runner(crate::test_runner)]
+#![reexport_test_harness_main = "test_main"]
+
 extern crate alloc;
 
 mod config;
@@ -20,15 +24,23 @@ global_asm!(include_str!("trap.asm"));
 global_asm!(include_str!("app.asm"));
 
 #[no_mangle]
-fn rust_main() {
-    clear_bss();
-    mm::init();
-    trap::init();
-    timer::init();
+extern "C" fn rust_main() {
+    #[cfg(test)]
+    {
+        test_main();
+    }
 
-    print_kernel_info();
+    #[cfg(not(test))]
+    {
+        clear_bss();
+        mm::init();
+        trap::init();
+        timer::init();
 
-    task::schedule();
+        print_kernel_info();
+
+        task::schedule();
+    }
 }
 
 fn print_kernel_info() {
@@ -75,4 +87,38 @@ fn panic_handler(panic_info: &PanicInfo) -> ! {
     println!("{}", panic_info);
 
     sbi::shutdown(true);
+}
+
+pub trait TestCase {
+    fn run(&self);
+}
+
+impl<T> TestCase for T
+where
+    T: Fn(),
+{
+    fn run(&self) {
+        print!("{}...\t", core::any::type_name::<T>());
+        self();
+    }
+}
+
+#[cfg(test)]
+fn test_runner(test_cases: &[&dyn TestCase]) {
+    println!("Running {} tests", test_cases.len());
+    for case in test_cases {
+        case.run();
+        println!("[ok]");
+    }
+    println!("test finished");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test_case]
+    fn test_working() {
+        assert!(true, "test working")
+    }
 }

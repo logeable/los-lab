@@ -1,7 +1,6 @@
-mod user;
-
 use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
+use tools::user;
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -48,10 +47,16 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::User(app_command) => match app_command {
             UserCommands::Asm(arg) => {
-                user::asm(&arg).context("user asm failed")?;
+                user::asm(
+                    &arg.user_args.user_crate_dir,
+                    &arg.app_asm_path,
+                    arg.user_args.release,
+                )
+                .context("user asm failed")?;
             }
             UserCommands::Build(arg) => {
-                user::build(&arg).context("user build failed")?;
+                user::build(&arg.user_args.user_crate_dir, arg.user_args.release)
+                    .context("user build failed")?;
             }
         },
     }

@@ -1,4 +1,3 @@
-use crate::{AsmArgs, BuildArgs};
 use anyhow::{bail, Context};
 use minijinja::{context, Environment, UndefinedBehavior};
 use regex::Regex;
@@ -6,16 +5,14 @@ use serde::Serialize;
 use std::{fs::File, path::PathBuf, process::Command};
 use uuid::Uuid;
 
-pub fn build(build_args: &BuildArgs) -> anyhow::Result<()> {
-    let user_path = &build_args.user_args.user_crate_dir;
-
+pub fn build(user_path: &str, release: bool) -> anyhow::Result<()> {
     let targets = get_bin_targets(user_path).context("get bin targets failed")?;
 
     let user_path = PathBuf::from(user_path);
     for target in targets.iter() {
         let mut cmd = Command::new("cargo");
         let cmd = cmd.arg("build").arg("--bin").arg(target);
-        if build_args.user_args.release {
+        if release {
             cmd.arg("--release");
         }
         let output = cmd
@@ -35,14 +32,8 @@ pub fn build(build_args: &BuildArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
-    let user_path = &asm_args.user_args.user_crate_dir;
-
-    let profile = if asm_args.user_args.release {
-        "release"
-    } else {
-        "debug"
-    };
+pub fn asm(user_path: &str, app_asm_path: &str, release: bool) -> anyhow::Result<()> {
+    let profile = if release { "release" } else { "debug" };
 
     let targets = get_bin_targets(user_path).context("get bin targets failed")?;
     let bin_dir = PathBuf::new()
@@ -85,7 +76,7 @@ pub fn asm(asm_args: &AsmArgs) -> anyhow::Result<()> {
         println!("{:?}", name);
     }
 
-    gen_app_asm(bins, &asm_args.app_asm_path).context("gen app asm failed")?;
+    gen_app_asm(bins, app_asm_path).context("gen app asm failed")?;
 
     Ok(())
 }

@@ -1,3 +1,3 @@
 user:
-	cargo run -- user build ../user
-	cargo run -- user asm ../user ../los/src/app.asm
+	cargo run --bin toolbox -- user build ../user
+	cargo run --bin toolbox -- user asm ../user ../los/src/app.asm
