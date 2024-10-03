@@ -1,6 +1,6 @@
 pub fn console_putchar(c: usize) {
     #[allow(deprecated)]
-    sbi_rt::legacy::console_putchar(c);
+    sbi_rt::console_write_byte(c as u8);
 }
 
 pub fn shutdown(failure: bool) -> ! {
