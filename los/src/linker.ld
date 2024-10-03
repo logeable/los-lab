@@ -9,10 +9,10 @@ SECTIONS
 
     stext = .;
     .text : {
-        *(.text.entry)
+        KEEP(*(.text.entry))
         . = ALIGN(4K);
         strampoline = .;
-        *(.text.trampoline)
+        KEEP(*(.text.trampoline))
         . = ALIGN(4K);
         etrampoline = .;
         *(.text .text.*)
