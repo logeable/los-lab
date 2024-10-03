@@ -6,19 +6,13 @@ use crate::{
     trap::{trap_return, TrapContext},
 };
 use alloc::{format, vec::Vec};
-use core::{arch::global_asm, mem};
+use core::arch::global_asm;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 global_asm!(include_str!("switch.asm"));
 
 const KERNEL_STACK_SIZE: usize = 4096 * 4;
-
-pub const MAX_APPS: usize = 16;
-
-static mut KERNEL_STACKS: [KernelStack; MAX_APPS] = [KernelStack {
-    data: [0; KERNEL_STACK_SIZE],
-}; MAX_APPS];
 
 lazy_static! {
     pub static ref TASK_MANAGER: Mutex<TaskManager> = {
@@ -48,7 +42,8 @@ impl TaskManager {
                 .translate(trap_context_va.floor_vpn())
                 .unwrap()
                 .ppn();
-            let kernel_sp = unsafe { KERNEL_STACKS[i].get_sp() };
+            let kernel_sp = mm::add_app_kernel_stack_area_in_kernel_space(i)
+                .expect("map app kernel stack must succeed");
             let trap_context_dest = unsafe { trap_context_ppn.get_mut::<TrapContext>() };
             *trap_context_dest = TrapContext::init(entry, user_sp, kernel_sp);
             tasks.push(TaskControlBlock::init(
@@ -129,25 +124,6 @@ pub fn schedule() {
     };
 
     switch_task(current_context, next_context);
-}
-
-#[repr(align(4096))]
-#[derive(Clone, Copy)]
-struct KernelStack {
-    data: [u8; KERNEL_STACK_SIZE],
-}
-
-impl KernelStack {
-    fn get_sp(&self) -> usize {
-        self.data.as_ptr() as usize + KERNEL_STACK_SIZE
-    }
-
-    fn push_trap_context(&self, ctx: TrapContext) -> *mut TrapContext {
-        let sp = self.get_sp() - mem::size_of::<TrapContext>();
-        let ctx_ptr = sp as *mut TrapContext;
-        unsafe { ctx_ptr.write(ctx) };
-        ctx_ptr
-    }
 }
 
 pub fn exit_current_task_and_schedule() -> ! {

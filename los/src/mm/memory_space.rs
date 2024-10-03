@@ -4,9 +4,10 @@ use super::{
     page_table::{Flags, PageTable},
 };
 use crate::{
-    config::{MEMORY_END, USER_STACK_SIZE},
+    config::{GUARD_PAGE_COUNT, KERNEL_STACK_SIZE, MEMORY_END, USER_STACK_SIZE},
     error,
     mm::address::{PhysAddr, PAGE_SIZE},
+    println,
 };
 use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
 use bitflags::bitflags;
@@ -258,7 +259,7 @@ impl MemorySpace {
                 error::KernelError::AddMapArea(format!("add trap context map area failed: {:?}", e))
             })?;
 
-        let user_stack_start_va = VirtPageNum(max_vpn.0 + 1).into();
+        let user_stack_start_va = VirtPageNum(max_vpn.0 + GUARD_PAGE_COUNT).into();
         let user_stack_end_va = user_stack_start_va + USER_STACK_SIZE;
         mem_space
             .add_framed_area(
@@ -292,6 +293,15 @@ impl MemorySpace {
             .map(vpn, ppn, (MapPermission::R | MapPermission::X).into())?;
 
         Ok(())
+    }
+
+    pub fn add_app_kernel_stack_area(&mut self, app_id: usize) -> error::Result<usize> {
+        let end_va =
+            kernel_stack_top_va() - app_id * (KERNEL_STACK_SIZE + GUARD_PAGE_COUNT * PAGE_SIZE);
+        let start_va = end_va - KERNEL_STACK_SIZE;
+        self.add_framed_area(start_va, end_va, MapPermission::R | MapPermission::W)?;
+
+        Ok(end_va.into())
     }
 
     fn add_map_area(&mut self, mut map_area: MapArea) -> error::Result<()> {
@@ -357,6 +367,10 @@ impl MemorySpace {
 
 pub fn trampoline_va() -> VirtAddr {
     VirtAddr::HIGH_HALF_MAX - PAGE_SIZE + 1
+}
+
+fn kernel_stack_top_va() -> VirtAddr {
+    trampoline_va()
 }
 
 pub fn trap_context_va() -> VirtAddr {

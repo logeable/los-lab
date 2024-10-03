@@ -33,3 +33,7 @@ pub fn build_app_mem_space(
 ) -> error::Result<(memory_space::MemorySpace, usize, usize)> {
     memory_space::MemorySpace::new_elf(elf_data)
 }
+
+pub fn add_app_kernel_stack_area_in_kernel_space(app_id: usize) -> error::Result<usize> {
+    KERNEL_MEMORY_SPACE.lock().add_app_kernel_stack_area(app_id)
+}

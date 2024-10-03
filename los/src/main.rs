@@ -33,11 +33,11 @@ extern "C" fn rust_main() {
     #[cfg(not(test))]
     {
         clear_bss();
+        print_kernel_info();
+
         mm::init();
         trap::init();
         timer::init();
-
-        print_kernel_info();
 
         task::schedule();
     }

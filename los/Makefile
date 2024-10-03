@@ -13,6 +13,8 @@ QEMU = qemu-system-riscv64
 KERNEL_BASE_ADDRESS = 0x80200000
 SMP = 4
 
+GDB_PATH = $(shell which riscv64-elf-gdb)
+
 ifeq ($(BUILD_MODE), release)
 	build_args += --release
 endif
@@ -24,14 +26,16 @@ qemu_opts = \
 	-bios ${RUSTSBI_QEMU} \
 	-device loader,file=${FULL_KERNEL},addr=${KERNEL_BASE_ADDRESS}
 
+gdb = RUST_GDB=$(GDB_PATH) rust-gdb
+
 qemu: ${KERNEL_BIN} 
 	${QEMU} ${qemu_opts}
 
 gdb: ${KERNEL_BIN}
 	${QEMU} ${qemu_opts} -s -S &
 	@sleep 1
-	riscv64-elf-gdb \
-		- q \
+	$(gdb) \
+		-q \
 		-ex 'file ${FULL_KERNEL}' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote 127.0.0.1:1234' \
