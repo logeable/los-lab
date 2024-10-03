@@ -9,6 +9,7 @@ extern crate alloc;
 
 mod config;
 mod console;
+mod device_tree;
 mod error;
 mod mm;
 mod sbi;
@@ -24,7 +25,7 @@ global_asm!(include_str!("trap.asm"));
 global_asm!(include_str!("app.asm"));
 
 #[no_mangle]
-extern "C" fn rust_main() {
+extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) {
     #[cfg(test)]
     {
         test_main();
@@ -35,7 +36,9 @@ extern "C" fn rust_main() {
         clear_bss();
         print_kernel_info();
 
-        mm::init();
+        device_tree::init(device_tree_pa);
+
+        mm::init(device_tree::get_device_info());
         trap::init();
         timer::init();
 

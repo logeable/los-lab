@@ -1,7 +1,7 @@
-use crate::{config::MEMORY_END, mm::address::PhysAddr};
-
 use super::address::PhysPageNum;
+use crate::mm::address::PhysAddr;
 use alloc::vec::Vec;
+use core::ops::Range;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -9,13 +9,13 @@ lazy_static! {
     static ref FRAME_ALLOCATOR: Mutex<StackFrameAllocator> = Mutex::new(StackFrameAllocator::new());
 }
 
-pub fn init() {
+pub fn init(mem_range: Range<usize>) {
     extern "C" {
         fn ekernel();
     }
 
     let start = PhysAddr::from(ekernel as usize);
-    let end = PhysAddr::from(MEMORY_END);
+    let end = PhysAddr::from(mem_range.end);
     assert!(
         start.0 < end.0,
         "no free frame, memory not enough, ekernel: {:#x}",

@@ -4,14 +4,13 @@ use super::{
     page_table::{Flags, PageTable},
 };
 use crate::{
-    config::{GUARD_PAGE_COUNT, KERNEL_STACK_SIZE, MEMORY_END, USER_STACK_SIZE},
+    config::{GUARD_PAGE_COUNT, KERNEL_STACK_SIZE, USER_STACK_SIZE},
     error,
     mm::address::{PhysAddr, PAGE_SIZE},
-    println,
 };
 use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
 use bitflags::bitflags;
-use core::arch::asm;
+use core::{arch::asm, ops::Range};
 use elf::endian::AnyEndian;
 use riscv::register::satp;
 
@@ -126,7 +125,7 @@ impl MemorySpace {
         }
     }
 
-    pub fn new_kernel() -> Self {
+    pub fn new_kernel(mem_range: Range<usize>) -> Self {
         extern "C" {
             fn stext();
             fn etext();
@@ -191,7 +190,7 @@ impl MemorySpace {
         mem_space
             .add_identical_area(
                 (ekernel as usize).into(),
-                (MEMORY_END as usize).into(),
+                (mem_range.end).into(),
                 MapPermission::R | MapPermission::W,
             )
             .expect("add memory area must succeed");
