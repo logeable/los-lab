@@ -16,14 +16,14 @@ pub use memory_space::MemorySpace;
 
 lazy_static! {
     pub static ref KERNEL_MEMORY_SPACE: Mutex<memory_space::MemorySpace> = {
-        let mem_range = device_tree::get_device_info().memory;
+        let mem_range = &device_tree::get_device_info().memory;
         Mutex::new(memory_space::MemorySpace::new_kernel(mem_range))
     };
 }
 
-pub fn init(device_info: device_tree::DeviceInfo) {
-    heap::init(device_info.memory.clone());
-    frame_allocator::init(device_info.memory.clone());
+pub fn init(device_info: &device_tree::DeviceInfo) {
+    heap::init(&device_info.memory);
+    frame_allocator::init(&device_info.memory);
 
     KERNEL_MEMORY_SPACE.lock().activate();
 }

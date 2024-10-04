@@ -9,7 +9,7 @@ lazy_static! {
     static ref FRAME_ALLOCATOR: Mutex<StackFrameAllocator> = Mutex::new(StackFrameAllocator::new());
 }
 
-pub fn init(mem_range: Range<usize>) {
+pub fn init(mem_range: &Range<usize>) {
     extern "C" {
         fn ekernel();
     }

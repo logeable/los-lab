@@ -20,6 +20,8 @@ mod trap;
 
 use core::{arch::global_asm, panic::PanicInfo};
 
+use device_tree::{get_device_info, DeviceInfo};
+
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("trap.asm"));
 global_asm!(include_str!("app.asm"));
@@ -29,24 +31,23 @@ extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) {
     #[cfg(test)]
     {
         test_main();
+        sbi::shutdown(false);
     }
 
-    #[cfg(not(test))]
-    {
-        clear_bss();
-        print_kernel_info();
+    clear_bss();
+    device_tree::init(device_tree_pa);
 
-        device_tree::init(device_tree_pa);
+    let device_info = get_device_info();
+    print_kernel_info(&device_info);
 
-        mm::init(device_tree::get_device_info());
-        trap::init();
-        timer::init();
+    mm::init(&device_info);
+    trap::init();
+    timer::init();
 
-        task::schedule();
-    }
+    task::schedule();
 }
 
-fn print_kernel_info() {
+fn print_kernel_info(device_info: &DeviceInfo) {
     extern "C" {
         fn skernel();
         fn stext();
@@ -66,6 +67,7 @@ fn print_kernel_info() {
         println!("{:10}: [{:#x}..{:#x}]", name, start, end,);
     }
 
+    color_print("memory", device_info.memory.start, device_info.memory.end);
     color_print("kernel", skernel as usize, ekernel as usize);
     color_print(".text", stext as usize, etext as usize);
     color_print(".rodata", srodata as usize, erodata as usize);

@@ -125,7 +125,7 @@ impl MemorySpace {
         }
     }
 
-    pub fn new_kernel(mem_range: Range<usize>) -> Self {
+    pub fn new_kernel(mem_range: &Range<usize>) -> Self {
         extern "C" {
             fn stext();
             fn etext();
