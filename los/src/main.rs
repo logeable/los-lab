@@ -42,7 +42,7 @@ extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) {
 
     mm::init(&device_info);
     trap::init();
-    timer::init();
+    timer::init(&device_info);
 
     task::schedule();
 }

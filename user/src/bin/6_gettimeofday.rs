@@ -6,13 +6,12 @@ use user::{self, entry, gettimeofday, println, sched_yield};
 entry!(main);
 
 fn main() -> i32 {
-    let t = gettimeofday().unwrap();
-    let v = t.usec;
-    println!("start: {:?}", t);
+    let start = gettimeofday().unwrap();
+    println!("start: {:?}", start);
 
     loop {
         let t = gettimeofday().unwrap();
-        if t.usec > v + 3000000 {
+        if t.sec - start.sec >= 3 {
             println!("done: {:?}", t);
             return 0;
         }

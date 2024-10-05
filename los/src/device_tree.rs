@@ -9,14 +9,13 @@ use spin::Mutex;
 const INDENT_WIDTH: usize = 4;
 
 lazy_static! {
-    static ref DEVICE_INFO: Mutex<DeviceInfo> = Mutex::new(DeviceInfo {
-        memory: Range::default()
-    });
+    static ref DEVICE_INFO: Mutex<DeviceInfo> = Mutex::new(DeviceInfo::default());
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DeviceInfo {
     pub memory: Range<usize>,
+    pub cpu_time_base_freq: usize,
 }
 
 pub fn init(device_tree_pa: usize) {
@@ -34,21 +33,36 @@ pub fn init(device_tree_pa: usize) {
     dtb.walk(|path, obj| match obj {
         dtb_walker::DtbObj::SubNode { name } => {
             let name = core::str::from_utf8(name).unwrap();
-            if !name.starts_with("memory") {
+            if !name.starts_with("memory") && !name.starts_with("cpu") {
                 return WalkOperation::StepOver;
             }
             // println!("{}{}/{}", indent(path.level(), INDENT_WIDTH), path, name);
             WalkOperation::StepInto
         }
-        dtb_walker::DtbObj::Property(property) => {
+        dtb_walker::DtbObj::Property(mut property) => {
             let name = core::str::from_utf8(path.last()).unwrap();
 
             // println!("{}{:?}", indent(path.level(), INDENT_WIDTH), property);
-
-            if let Property::Reg(mut reg) = property {
-                if name.starts_with("memory") {
+            if name.starts_with("memory") {
+                if let Property::Reg(reg) = &mut property {
                     let mut info = DEVICE_INFO.lock();
                     info.memory = reg.next().unwrap();
+                }
+            }
+
+            if name.starts_with("cpus") {
+                if let Property::General { name, value } = &property {
+                    let name = name.as_str().unwrap();
+                    if name == "timebase-frequency" {
+                        let mut bytes = [0u8; 4];
+                        bytes[0] = value[0];
+                        bytes[1] = value[1];
+                        bytes[2] = value[2];
+                        bytes[3] = value[3];
+
+                        let mut info = DEVICE_INFO.lock();
+                        info.cpu_time_base_freq = u32::from_be_bytes(bytes) as usize;
+                    }
                 }
             }
 
