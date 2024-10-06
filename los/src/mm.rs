@@ -13,6 +13,7 @@ pub use heap::kernel_heap_stats;
 pub use memory_space::trampoline_va;
 pub use memory_space::trap_context_va;
 pub use memory_space::MemorySpace;
+pub use page_table::PageTable;
 
 lazy_static! {
     pub static ref KERNEL_MEMORY_SPACE: Mutex<memory_space::MemorySpace> = {

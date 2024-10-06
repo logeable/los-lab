@@ -1,17 +1,20 @@
 use crate::{println, sbi, task};
-use core::slice;
 
 const STDOUT: usize = 1;
 
 pub fn sys_write(fd: usize, data: *const u8, len: usize) -> isize {
     match fd {
-        STDOUT => match task::translate_by_current_task_pagetable(data as usize) {
-            Ok(pa) => {
-                let buf = unsafe { slice::from_raw_parts(pa as *const u8, len) };
-                for b in buf {
-                    sbi::console_putchar(*b as usize);
+        STDOUT => match task::translate_by_current_task_pagetable(data as usize, len) {
+            Ok(chunks) => {
+                let mut len = 0usize;
+                for chunk in chunks.iter() {
+                    for b in chunk.iter() {
+                        sbi::console_putchar(*b as usize);
+                    }
+                    len += chunk.len();
                 }
-                buf.len() as isize
+
+                len as isize
             }
             Err(err) => {
                 println!("translate failed: {:?}", err);

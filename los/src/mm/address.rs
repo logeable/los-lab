@@ -54,6 +54,10 @@ impl VirtAddr {
     pub fn ceil_vpn(&self) -> VirtPageNum {
         VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
     }
+
+    pub fn is_page_aligned(&self) -> bool {
+        self.0 % PAGE_SIZE == 0
+    }
 }
 
 impl From<VirtPageNum> for VirtAddr {
@@ -138,6 +142,10 @@ impl VirtPageNum {
 
     pub fn get_level_3_index(&self) -> usize {
         (self.0 >> 18) & 0x1ff
+    }
+
+    pub fn offset(&self, offset: usize) -> Self {
+        Self(self.0 + offset)
     }
 }
 

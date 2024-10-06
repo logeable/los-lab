@@ -1,12 +1,16 @@
 use super::{TaskContext, TaskControlBlock, TaskStatus};
 use crate::{
     error,
-    mm::{self, address},
+    mm::{
+        self,
+        address::{self, VPNRange},
+        PageTable,
+    },
     task::loader::AppLoader,
     trap::{trap_return, TrapContext},
 };
-use alloc::{format, vec::Vec};
-use core::arch::global_asm;
+use alloc::{format, string::ToString, vec::Vec};
+use core::{arch::global_asm, slice};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -166,27 +170,60 @@ pub fn get_current_task_trap_context() -> Option<*mut TrapContext> {
     Some(trap_context)
 }
 
-pub fn translate_by_current_task_pagetable(va: usize) -> error::Result<usize> {
-    let vpn = address::VirtAddr::from(va).floor_vpn();
-
-    let name = get_current_task_name().expect("current task must exist");
-    match TASK_MANAGER
+pub fn translate_by_current_task_pagetable(
+    start_va: usize,
+    len: usize,
+) -> error::Result<Vec<&'static mut [u8]>> {
+    let satp = TASK_MANAGER
         .lock()
         .get_current_mut()
         .expect("current task must exist")
         .mem_space
         .page_table()
-        .translate(vpn)
-    {
-        Some(pte) => {
-            let pa = address::PhysAddr::from(pte.ppn());
-            return Ok(usize::from(pa) + (va % address::PAGE_SIZE));
-        }
-        None => {
-            return Err(error::KernelError::Translate(format!(
-                "translate address {:#x} for user space {:?} failed",
-                va, name
-            )));
-        }
+        .satp();
+
+    translate_by_satp(satp, start_va, len)
+}
+
+pub fn translate_by_satp(
+    satp: usize,
+    start_va: usize,
+    len: usize,
+) -> error::Result<Vec<&'static mut [u8]>> {
+    let page_table = PageTable::from_satp(satp);
+    let end_va = start_va + len;
+
+    let mut result: Vec<&'static mut [u8]> = Vec::new();
+
+    let mut addr = start_va;
+    while addr < end_va {
+        let addr_va = address::VirtAddr::from(addr);
+
+        let page_vpn = addr_va.floor_vpn();
+        let page_ppn = page_table
+            .translate(page_vpn)
+            .ok_or(error::KernelError::Translate(
+                "translate start vpn failed".to_string(),
+            ))?
+            .ppn();
+
+        let page_start_va = address::VirtAddr::from(page_vpn);
+        let page_end_va = address::VirtAddr::from(page_vpn.offset(1));
+
+        let chunk_end_va = page_end_va.0.min(end_va);
+        let chunk_start_va = page_start_va.0.max(addr_va.0);
+        let chunk_page_offset = addr_va.0 - page_start_va.0;
+        let chunk_len = chunk_end_va - chunk_start_va;
+
+        let page_start_pa = address::PhysAddr::from(page_ppn);
+        let chunk_start_pa = page_start_pa.0 + chunk_page_offset;
+        let chunk =
+            unsafe { core::slice::from_raw_parts_mut(chunk_start_pa as *mut u8, chunk_len) };
+
+        addr += chunk_len;
+
+        result.push(chunk);
     }
+
+    Ok(result)
 }

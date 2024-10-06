@@ -1,3 +1,4 @@
 /target
 src/app.asm
 /dtb.out
+.gdb_history
