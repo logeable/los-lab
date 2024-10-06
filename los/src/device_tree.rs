@@ -1,12 +1,9 @@
 use core::ops::Range;
 
-use crate::println;
 use alloc::format;
-use dtb_walker::{utils::indent, Dtb, HeaderError, Property, WalkOperation};
+use dtb_walker::{Dtb, HeaderError, Property, WalkOperation};
 use lazy_static::lazy_static;
 use spin::Mutex;
-
-const INDENT_WIDTH: usize = 4;
 
 lazy_static! {
     static ref DEVICE_INFO: Mutex<DeviceInfo> = Mutex::new(DeviceInfo::default());
@@ -36,13 +33,10 @@ pub fn init(device_tree_pa: usize) {
             if !name.starts_with("memory") && !name.starts_with("cpu") {
                 return WalkOperation::StepOver;
             }
-            // println!("{}{}/{}", indent(path.level(), INDENT_WIDTH), path, name);
             WalkOperation::StepInto
         }
         dtb_walker::DtbObj::Property(mut property) => {
             let name = core::str::from_utf8(path.last()).unwrap();
-
-            // println!("{}{:?}", indent(path.level(), INDENT_WIDTH), property);
             if name.starts_with("memory") {
                 if let Property::Reg(reg) = &mut property {
                     let mut info = DEVICE_INFO.lock();

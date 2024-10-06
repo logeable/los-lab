@@ -3,20 +3,18 @@ use crate::{
     error,
     mm::{
         self,
-        address::{self, VPNRange},
+        address::{self},
         PageTable,
     },
     task::loader::AppLoader,
     trap::{trap_return, TrapContext},
 };
-use alloc::{format, string::ToString, vec::Vec};
-use core::{arch::global_asm, slice};
+use alloc::{string::ToString, vec::Vec};
+use core::arch::global_asm;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 global_asm!(include_str!("switch.asm"));
-
-const KERNEL_STACK_SIZE: usize = 4096 * 4;
 
 lazy_static! {
     pub static ref TASK_MANAGER: Mutex<TaskManager> = {

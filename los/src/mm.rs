@@ -9,6 +9,7 @@ mod heap;
 mod memory_space;
 mod page_table;
 
+#[allow(unused_imports)]
 pub use heap::kernel_heap_stats;
 pub use memory_space::trampoline_va;
 pub use memory_space::trap_context_va;

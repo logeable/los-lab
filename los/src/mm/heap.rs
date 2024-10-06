@@ -22,6 +22,7 @@ pub fn init(_mem_range: &Range<usize>) {
     };
 }
 
+#[allow(dead_code)]
 pub fn kernel_heap_stats() {
     println!(
         "actual: {0}/{0:#x}",

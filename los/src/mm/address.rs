@@ -4,10 +4,8 @@ use super::page_table::PageTableEntry;
 
 const PAGE_OFFSET_WIDTH: usize = 12;
 pub const PAGE_SIZE: usize = 1 << PAGE_OFFSET_WIDTH;
-const VA_WIDTH_SV39: usize = 39;
 const PA_WIDTH_SV39: usize = 56;
 const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_OFFSET_WIDTH;
-const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_OFFSET_WIDTH;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct PhysAddr(pub usize);
@@ -170,6 +168,7 @@ impl VPNRange {
         self.into_iter().count() * PAGE_SIZE
     }
 
+    #[allow(dead_code)]
     pub fn start(&self) -> VirtPageNum {
         self.start
     }

@@ -199,8 +199,4 @@ impl PageTable {
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.find_pte_mut(vpn).map(|pte| unsafe { *pte })
     }
-
-    pub fn root_ppn(&self) -> PhysPageNum {
-        self.root_ppn
-    }
 }

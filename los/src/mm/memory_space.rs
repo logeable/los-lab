@@ -70,6 +70,7 @@ impl MapArea {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn unmap(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
             match self.map_type {

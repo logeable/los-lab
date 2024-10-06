@@ -35,6 +35,7 @@ pub fn dealloc(ppn: PhysPageNum) {
     FRAME_ALLOCATOR.lock().dealloc(ppn);
 }
 
+#[allow(dead_code)]
 pub fn free_frames_count() -> usize {
     FRAME_ALLOCATOR.lock().free_frames_count()
 }
