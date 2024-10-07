@@ -17,6 +17,7 @@ mod syscall;
 mod task;
 mod timer;
 mod trap;
+mod vga_buffer;
 
 use core::{arch::global_asm, panic::PanicInfo};
 
@@ -39,6 +40,8 @@ extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) {
 
     let device_info = get_device_info();
     print_kernel_info(&device_info);
+
+    vga_buffer::test();
 
     mm::init(&device_info);
     trap::init();

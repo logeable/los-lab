@@ -22,8 +22,8 @@ endif
 qemu_opts = \
 	-machine virt \
 	-smp cores=${SMP} \
-	-nographic \
 	-bios ${RUSTSBI_QEMU} \
+	-serial mon:stdio -device virtio-vga \
 	-device loader,file=${FULL_KERNEL},addr=${KERNEL_BASE_ADDRESS}
 
 gdb = RUST_GDB=$(GDB_PATH) rust-gdb
