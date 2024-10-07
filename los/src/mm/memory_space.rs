@@ -218,6 +218,8 @@ impl MemorySpace {
                 error::KernelError::ELFSegmentData(format!("read segment data failed: {:?}", e))
             })?;
             let start_va = VirtAddr(segment.p_vaddr as usize);
+            assert!(start_va.is_page_aligned());
+
             let end_va = start_va + segment.p_memsz as usize;
             let mut map_perm = MapPermission::U;
             if segment.p_flags & elf::abi::PF_R != 0 {
