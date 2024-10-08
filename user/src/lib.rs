@@ -81,13 +81,22 @@ pub fn gettimeofday() -> Result<TimeVal> {
     Ok(t)
 }
 
-pub fn fork() -> Result<usize> {
+pub enum ForkProc {
+    Child(usize),
+    Parent,
+}
+
+pub fn fork() -> Result<ForkProc> {
     let ret = syscall::sys_fork();
     if ret < 0 {
         return Err(Error::SyscallError(ret));
     }
 
-    Ok(ret as usize)
+    if ret == 0 {
+        Ok(ForkProc::Parent)
+    } else {
+        Ok(ForkProc::Child(ret as usize))
+    }
 }
 
 pub fn exec(path: &str) -> Result<()> {
@@ -110,7 +119,13 @@ pub fn exec(path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn wait() -> Result<usize> {
+#[derive(Debug)]
+pub struct WaitResult {
+    pub pid: usize,
+    pub exit_code: i32,
+}
+
+pub fn wait() -> Result<WaitResult> {
     let mut exit_code = 0;
 
     loop {
@@ -120,12 +135,13 @@ pub fn wait() -> Result<usize> {
         } else if ret == 0 {
             sched_yield();
         } else {
-            return Ok(ret as usize);
+            let pid = ret as usize;
+            return Ok(WaitResult { pid, exit_code });
         }
     }
 }
 
-pub fn waitpid(pid: usize) -> Result<usize> {
+pub fn waitpid(pid: usize) -> Result<WaitResult> {
     let mut exit_code = 0;
 
     loop {
@@ -135,7 +151,8 @@ pub fn waitpid(pid: usize) -> Result<usize> {
         } else if ret == 0 {
             sched_yield();
         } else {
-            return Ok(ret as usize);
+            let pid = ret as usize;
+            return Ok(WaitResult { pid, exit_code });
         }
     }
 }
