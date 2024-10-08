@@ -5,9 +5,10 @@ pub mod console;
 mod error;
 mod syscall;
 
-use core::panic::PanicInfo;
-
+use core::{ffi::CStr, panic::PanicInfo};
 use error::{Error, Result};
+
+const MAX_PATH_LEN: usize = 128;
 
 #[no_mangle]
 #[link_section = ".text.entry"]
@@ -78,4 +79,63 @@ pub fn gettimeofday() -> Result<TimeVal> {
     }
 
     Ok(t)
+}
+
+pub fn fork() -> Result<usize> {
+    let ret = syscall::sys_fork();
+    if ret < 0 {
+        return Err(Error::SyscallError(ret));
+    }
+
+    Ok(ret as usize)
+}
+
+pub fn exec(path: &str) -> Result<()> {
+    if path.len() + 1 > MAX_PATH_LEN {
+        return Err(Error::PathTooLong);
+    }
+
+    let bytes = path.as_bytes();
+    let mut buf = [0u8; MAX_PATH_LEN];
+    buf.fill(0);
+    buf[..bytes.len()].copy_from_slice(bytes);
+
+    let cstr = CStr::from_bytes_until_nul(&buf).map_err(|_| Error::CastToCStr)?;
+
+    let ret = syscall::sys_exec(cstr);
+    if ret < 0 {
+        return Err(Error::SyscallError(ret));
+    }
+
+    Ok(())
+}
+
+pub fn wait() -> Result<usize> {
+    let mut exit_code = 0;
+
+    loop {
+        let ret = syscall::sys_wait(-1, &mut exit_code);
+        if ret < 0 {
+            return Err(Error::SyscallError(ret));
+        } else if ret == 0 {
+            sched_yield();
+        } else {
+            return Ok(ret as usize);
+        }
+    }
+}
+
+pub fn waitpid(pid: usize) -> Result<usize> {
+    let mut exit_code = 0;
+
+    loop {
+        let ret = syscall::sys_wait(pid as isize, &mut exit_code);
+        if ret < 0 {
+            return Err(Error::SyscallError(ret));
+        } else if ret == 0 {
+            sched_yield();
+        } else {
+            return Ok(ret as usize);
+        }
+    }
 }

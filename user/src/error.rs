@@ -1,6 +1,8 @@
 #[derive(Debug)]
 pub enum Error {
     SyscallError(isize),
+    CastToCStr,
+    PathTooLong,
 }
 
 // impl core::error::Error for Error {}
