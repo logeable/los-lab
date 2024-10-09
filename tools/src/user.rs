@@ -1,6 +1,5 @@
 use anyhow::{bail, Context};
 use minijinja::{context, Environment, UndefinedBehavior};
-use regex::Regex;
 use serde::Serialize;
 use std::{fs::File, path::PathBuf, process::Command};
 use uuid::Uuid;
