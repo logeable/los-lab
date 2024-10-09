@@ -2,6 +2,7 @@ use core::{arch::asm, ffi::CStr};
 
 use crate::TimeVal;
 
+pub const SYS_READ: usize = 63;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 pub const SYS_SCHED_YIELD: usize = 124;
@@ -9,6 +10,10 @@ pub const SYS_GETTIMEOFDAY: usize = 169;
 pub const SYS_FORK: usize = 220;
 pub const SYS_EXEC: usize = 221;
 pub const SYS_WAITPID: usize = 260;
+
+pub fn sys_read(fd: usize, buf: &mut [u8]) -> isize {
+    syscall_3(SYS_READ, fd, buf.as_ptr() as usize, buf.len())
+}
 
 pub fn sys_write(fd: usize, buf: &[u8]) -> isize {
     syscall_3(SYS_WRITE, fd, buf.as_ptr() as usize, buf.len())

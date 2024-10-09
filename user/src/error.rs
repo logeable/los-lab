@@ -3,6 +3,7 @@ pub enum Error {
     SyscallError(isize),
     CastToCStr,
     PathTooLong,
+    UnexpectedEof,
 }
 
 // impl core::error::Error for Error {}

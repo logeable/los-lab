@@ -18,7 +18,7 @@ pub fn init(_mem_range: &Range<usize>) {
         #[allow(static_mut_refs)]
         HEAP_ALLOCATOR
             .lock()
-            .init(HEAP_SPACE.as_ptr() as usize, KERNEL_HEAP_SIZE)
+            .init(HEAP_SPACE.as_ptr() as usize, HEAP_SPACE.len())
     };
 }
 

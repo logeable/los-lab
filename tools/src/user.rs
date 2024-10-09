@@ -42,7 +42,6 @@ pub fn asm(user_path: &str, app_asm_path: &str, release: bool) -> anyhow::Result
         .join("riscv64gc-unknown-none-elf")
         .join(profile);
 
-    let bin_name_regex = Regex::new(r"^(?<ID>\d+)_.*").unwrap();
     let mut bins = Vec::new();
     for target in targets {
         let bin_path = bin_dir.join(target);
@@ -55,17 +54,10 @@ pub fn asm(user_path: &str, app_asm_path: &str, release: bool) -> anyhow::Result
 
     let mut bins: Vec<_> = bins
         .iter()
-        .filter(|p| bin_name_regex.is_match(p.file_name().unwrap().to_str().unwrap()))
+        .filter(|p| !p.file_name().unwrap().to_str().unwrap().starts_with("x_"))
         .collect();
 
-    bins.sort_by(|a, b| {
-        let a = a.file_name().unwrap().to_str().unwrap();
-        let b = b.file_name().unwrap().to_str().unwrap();
-        let id_a: i32 = bin_name_regex.captures(a).unwrap()["ID"].parse().unwrap();
-        let id_b: i32 = bin_name_regex.captures(b).unwrap()["ID"].parse().unwrap();
-
-        id_a.cmp(&id_b)
-    });
+    bins.sort();
 
     let bins: Vec<String> = bins
         .into_iter()

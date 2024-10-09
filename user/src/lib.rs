@@ -1,8 +1,10 @@
 #![no_std]
 #![no_main]
+#![feature(alloc_error_handler)]
 
 pub mod console;
 mod error;
+mod heap;
 mod syscall;
 
 use core::{ffi::CStr, panic::PanicInfo};
@@ -18,6 +20,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     clear_bss();
+    heap::init();
     exit(unsafe { __main() });
 }
 
@@ -51,6 +54,16 @@ macro_rules! entry {
     };
 }
 
+pub fn read(fd: usize, buf: &mut [u8]) -> Result<usize> {
+    let ret = syscall::sys_read(fd, buf);
+
+    if ret < 0 {
+        Err(Error::SyscallError(ret))
+    } else {
+        Ok(ret as usize)
+    }
+}
+
 pub fn write(fd: usize, buf: &[u8]) -> isize {
     syscall::sys_write(fd, buf)
 }
@@ -82,8 +95,8 @@ pub fn gettimeofday() -> Result<TimeVal> {
 }
 
 pub enum ForkProc {
-    Child(usize),
-    Parent,
+    Child,
+    Parent(usize),
 }
 
 pub fn fork() -> Result<ForkProc> {
@@ -93,9 +106,9 @@ pub fn fork() -> Result<ForkProc> {
     }
 
     if ret == 0 {
-        Ok(ForkProc::Parent)
+        Ok(ForkProc::Child)
     } else {
-        Ok(ForkProc::Child(ret as usize))
+        Ok(ForkProc::Parent(ret as usize))
     }
 }
 
