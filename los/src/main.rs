@@ -27,7 +27,7 @@ global_asm!(include_str!("trap.asm"));
 global_asm!(include_str!("app.asm"));
 
 #[no_mangle]
-extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) {
+extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) -> ! {
     #[cfg(test)]
     {
         test_main();
@@ -44,7 +44,7 @@ extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) {
     trap::init();
     timer::init(&device_info);
 
-    task::schedule();
+    task::run_tasks();
 }
 
 fn print_kernel_info(device_info: &DeviceInfo) {

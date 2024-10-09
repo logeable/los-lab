@@ -1,4 +1,4 @@
-use super::{TaskContext, TaskControlBlock, TaskStatus};
+use super::{pid, TaskContext, TaskControlBlock, TaskStatus};
 use crate::{
     error,
     mm::{
@@ -6,10 +6,15 @@ use crate::{
         address::{self},
         PageTable,
     },
+    println,
     task::loader::AppLoader,
     trap::{trap_return, TrapContext},
 };
-use alloc::{string::ToString, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::arch::global_asm;
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -17,47 +22,32 @@ use spin::Mutex;
 global_asm!(include_str!("switch.asm"));
 
 lazy_static! {
-    pub static ref TASK_MANAGER: Mutex<TaskManager> = {
-        let manager = TaskManager::new();
-
-        Mutex::new(manager)
-    };
+    pub static ref TASK_MANAGER: Mutex<TaskManager> = Mutex::new(TaskManager::new());
 }
 
 pub struct TaskManager {
     tasks: Vec<TaskControlBlock>,
     current_task_index: Option<usize>,
+    app_loader: AppLoader,
 }
 
 impl TaskManager {
     fn new() -> Self {
         let app_loader = AppLoader::load();
         let mut tasks = Vec::new();
-        for (i, app) in app_loader.apps().iter().enumerate() {
-            let (mem_space, user_sp, entry) =
-                mm::build_app_mem_space(app.elf_data).expect("build app mem space must succeed");
 
-            let trap_context_va = mm::trap_context_va();
+        app_loader
+            .app_names()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, name)| {
+                println!("{}: {}", idx, name);
+            });
 
-            let trap_context_ppn = mem_space
-                .page_table()
-                .translate(trap_context_va.floor_vpn())
-                .unwrap()
-                .ppn();
-            let kernel_sp = mm::add_app_kernel_stack_area_in_kernel_space(i)
-                .expect("map app kernel stack must succeed");
-            let trap_context_dest = unsafe { trap_context_ppn.get_mut::<TrapContext>() };
-            *trap_context_dest = TrapContext::init(entry, user_sp, kernel_sp);
-            tasks.push(TaskControlBlock::init(
-                app.name,
-                trap_return as usize,
-                kernel_sp,
-                mem_space,
-            ));
-        }
         TaskManager {
             tasks,
             current_task_index: None,
+            app_loader,
         }
     }
 
@@ -79,6 +69,42 @@ impl TaskManager {
         }
 
         found_idx.map(|idx| (idx, self.tasks.get_mut(idx).unwrap()))
+    }
+
+    fn load_app(&self, name: &str) -> error::Result<TaskControlBlock> {
+        let elf_data = self
+            .app_loader
+            .load_app_elf(name)
+            .ok_or(error::KernelError::LoadAppELF(format!(
+                "load app ELF failed: {}",
+                name
+            )))?;
+        let (mem_space, user_sp, entry) =
+            mm::build_app_mem_space(&elf_data).expect("build app mem space must succeed");
+
+        let trap_context_va = mm::trap_context_va();
+
+        let trap_context_ppn = mem_space
+            .page_table()
+            .translate(trap_context_va.floor_vpn())
+            .unwrap()
+            .ppn();
+
+        let pid = pid::alloc().ok_or(error::KernelError::AllocPid(
+            "allocate pid failed".to_string(),
+        ))?;
+        let kernel_sp = mm::add_app_kernel_stack_area_in_kernel_space(pid.clone().into())
+            .expect("map app kernel stack must succeed");
+        let trap_context_dest = unsafe { trap_context_ppn.get_mut::<TrapContext>() };
+        *trap_context_dest = TrapContext::init(entry, user_sp, kernel_sp);
+
+        Ok(TaskControlBlock::init(
+            name.to_string(),
+            pid,
+            trap_return as usize,
+            kernel_sp,
+            mem_space,
+        ))
     }
 
     fn get_current_mut(&mut self) -> Option<&mut TaskControlBlock> {
@@ -128,6 +154,10 @@ pub fn schedule() {
     switch_task(current_context, next_context);
 }
 
+pub fn run_tasks() -> ! {
+    unimplemented!()
+}
+
 pub fn exit_current_task_and_schedule() -> ! {
     TASK_MANAGER.lock().get_current_mut().unwrap().status = TaskStatus::Exited;
     schedule();
@@ -140,8 +170,11 @@ pub fn suspend_current_task_and_schedule() {
     schedule();
 }
 
-pub fn get_current_task_name() -> Option<&'static str> {
-    TASK_MANAGER.lock().get_current_mut().map(|tcp| tcp.name)
+pub fn get_current_task_name() -> Option<String> {
+    TASK_MANAGER
+        .lock()
+        .get_current_mut()
+        .map(|tcb| tcb.name.clone())
 }
 
 pub fn get_current_task_mut() -> Option<*mut TaskControlBlock> {

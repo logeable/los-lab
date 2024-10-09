@@ -17,6 +17,8 @@ pub enum KernelError {
     ELFProgramHeader(String),
     ELFSegmentData(String),
     Translate(String),
+    LoadAppELF(String),
+    AllocPid(String),
 }
 
 impl core::error::Error for KernelError {}

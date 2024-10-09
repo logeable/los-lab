@@ -62,25 +62,29 @@ impl StackFrameAllocator {
 
     fn alloc(&mut self) -> Option<PhysPageNum> {
         if let Some(ppn) = self.recycled.pop() {
-            Some(ppn.into())
+            return Some(ppn.into());
+        }
+
+        if self.current == self.end {
+            None
         } else {
-            if self.current == self.end {
-                None
-            } else {
-                let ppn = self.current;
-                self.current += 1;
-                Some(ppn.into())
-            }
+            let ppn = self.current;
+            self.current += 1;
+            Some(ppn.into())
         }
     }
 
     fn dealloc(&mut self, ppn: PhysPageNum) {
-        if ppn.0 >= self.current {
-            panic!("Frame ppn={:#x} has not been allocated!", ppn.0);
-        }
-        if self.recycled.iter().any(|&v| v == ppn.0) {
-            panic!("Frame ppn={:#x} has been deallocated!", ppn.0);
-        }
+        assert!(
+            ppn.0 < self.current,
+            "Frame ppn={:#x} has not been allocated!",
+            ppn.0
+        );
+        assert!(
+            !self.recycled.iter().any(|&v| v == ppn.0),
+            "Frame ppn={:#x} has been deallocated!",
+            ppn.0
+        );
 
         self.recycled.push(ppn.0);
     }

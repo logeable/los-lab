@@ -1,4 +1,8 @@
-use alloc::vec::Vec;
+use alloc::{
+    collections::btree_map::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use core::{
     ffi::{c_char, CStr},
@@ -6,7 +10,7 @@ use core::{
 };
 
 pub struct AppLoader {
-    apps: Vec<AppInfo>,
+    apps: BTreeMap<String, AppInfo>,
 }
 
 impl AppLoader {
@@ -17,16 +21,16 @@ impl AppLoader {
 
         let number_of_app = unsafe { *(_app_data as *const usize) };
 
-        let mut apps = Vec::new();
+        let mut apps = BTreeMap::new();
         for i in 0..number_of_app {
-            let app_info = Self::app_info(i);
-            apps.push(app_info);
+            let app_info = Self::load_app_info(i);
+            apps.insert(app_info.name.to_string(), app_info);
         }
 
         AppLoader { apps }
     }
 
-    fn app_info(idx: usize) -> AppInfo {
+    fn load_app_info(idx: usize) -> AppInfo {
         extern "C" {
             fn _app_data();
         }
@@ -45,20 +49,31 @@ impl AppLoader {
             .to_str()
             .unwrap();
 
-        let elf_data = unsafe {
-            slice::from_raw_parts(app_data.start as *const u8, app_data.end - app_data.start)
-        };
-
-        AppInfo { elf_data, name }
+        AppInfo {
+            name,
+            elf_start: app_data.start,
+            elf_size: app_data.end - app_data.start,
+        }
     }
 
-    pub fn apps(&self) -> &[AppInfo] {
-        &self.apps
+    pub fn load_app_elf(&self, name: &str) -> Option<Vec<u8>> {
+        let app_info = self.apps.get(name)?;
+
+        let elf_data =
+            unsafe { slice::from_raw_parts(app_info.elf_start as *const u8, app_info.elf_size) }
+                .to_vec();
+
+        Some(elf_data)
+    }
+
+    pub fn app_names(&self) -> Vec<String> {
+        self.apps.keys().cloned().collect()
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct AppInfo {
-    pub elf_data: &'static [u8],
     pub name: &'static str,
+    pub elf_start: usize,
+    pub elf_size: usize,
 }
