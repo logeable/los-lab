@@ -19,6 +19,9 @@ pub enum KernelError {
     Translate(String),
     LoadAppELF(String),
     AllocPid(String),
+    AddAppKernelStackArea(String),
+    MapAreaNotFound(String),
+    CurrentTaskNotFound(String),
 }
 
 impl core::error::Error for KernelError {}

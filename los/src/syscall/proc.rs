@@ -15,3 +15,15 @@ pub fn sys_sched_yield() -> isize {
 
     0
 }
+
+pub fn sys_fork() -> isize {
+    unimplemented!()
+}
+
+pub fn sys_exec(path: *const u8) -> isize {
+    unimplemented!()
+}
+
+pub fn sys_wait(pid: isize, exit_code: *mut i32) -> isize {
+    unimplemented!()
+}

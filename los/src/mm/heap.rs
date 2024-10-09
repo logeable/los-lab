@@ -1,5 +1,3 @@
-use core::ops::Range;
-
 use crate::{config::KERNEL_HEAP_SIZE, println};
 use buddy_system_allocator::LockedHeap;
 
@@ -13,7 +11,7 @@ pub fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
 
 static mut HEAP_SPACE: [u8; KERNEL_HEAP_SIZE] = [0; KERNEL_HEAP_SIZE];
 
-pub fn init(_mem_range: &Range<usize>) {
+pub fn init() {
     unsafe {
         #[allow(static_mut_refs)]
         HEAP_ALLOCATOR

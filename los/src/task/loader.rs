@@ -56,12 +56,11 @@ impl AppLoader {
         }
     }
 
-    pub fn load_app_elf(&self, name: &str) -> Option<Vec<u8>> {
+    pub fn load_app_elf(&self, name: &str) -> Option<&'static [u8]> {
         let app_info = self.apps.get(name)?;
 
         let elf_data =
-            unsafe { slice::from_raw_parts(app_info.elf_start as *const u8, app_info.elf_size) }
-                .to_vec();
+            unsafe { slice::from_raw_parts(app_info.elf_start as *const u8, app_info.elf_size) };
 
         Some(elf_data)
     }

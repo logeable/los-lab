@@ -168,7 +168,6 @@ impl VPNRange {
         self.into_iter().count() * PAGE_SIZE
     }
 
-    #[allow(dead_code)]
     pub fn start(&self) -> VirtPageNum {
         self.start
     }

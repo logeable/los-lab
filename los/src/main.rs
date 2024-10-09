@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(alloc_error_handler)]
 #![feature(custom_test_frameworks)]
+#![feature(sync_unsafe_cell)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -20,8 +21,6 @@ mod trap;
 
 use core::{arch::global_asm, panic::PanicInfo};
 
-use device_tree::{get_device_info, DeviceInfo};
-
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("trap.asm"));
 global_asm!(include_str!("app.asm"));
@@ -37,17 +36,18 @@ extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) -> ! {
     clear_bss();
     device_tree::init(device_tree_pa);
 
-    let device_info = get_device_info();
-    print_kernel_info(&device_info);
+    print_kernel_info();
 
-    mm::init(&device_info);
+    mm::init();
     trap::init();
-    timer::init(&device_info);
+    timer::init();
+    task::init();
+    task::print_apps();
 
     task::run_tasks();
 }
 
-fn print_kernel_info(device_info: &DeviceInfo) {
+fn print_kernel_info() {
     extern "C" {
         fn skernel();
         fn stext();
@@ -67,6 +67,7 @@ fn print_kernel_info(device_info: &DeviceInfo) {
         println!("{:10}: [{:#x}..{:#x}]", name, start, end,);
     }
 
+    let device_info = device_tree::get_device_info();
     color_print("memory", device_info.memory.start, device_info.memory.end);
     color_print("kernel", skernel as usize, ekernel as usize);
     color_print(".text", stext as usize, etext as usize);

@@ -138,11 +138,7 @@ pub fn trap_return() -> ! {
     let trap_context_va = mm::trap_context_va();
     let trap_context_ptr: usize = trap_context_va.into();
 
-    let tcb = {
-        let ptr = task::get_current_task_mut().unwrap();
-        unsafe { &*ptr }
-    };
-    let app_satp = tcb.mem_space.page_table().satp();
+    let app_satp = task::get_current_task_satp().expect("current task satp must exist");
 
     unsafe {
         asm!(

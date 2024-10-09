@@ -1,15 +1,21 @@
+use crate::{device_tree, sbi};
+use core::cell::SyncUnsafeCell;
+use lazy_static::lazy_static;
 use riscv::register::time;
 
-use crate::{device_tree::DeviceInfo, sbi};
-
-static mut TICKS_PER_SEC: usize = 0;
+lazy_static! {
+    static ref TICKS_PER_SEC: SyncUnsafeCell<usize> = SyncUnsafeCell::new(0);
+}
 
 const MS_PER_TIME_SLICE: usize = 10;
 const MS_PER_SEC: usize = 1000;
 const US_PER_SEC: usize = MS_PER_SEC * 1000;
 
-pub fn init(device_info: &DeviceInfo) {
-    unsafe { TICKS_PER_SEC = device_info.cpu_time_base_freq };
+pub fn init() {
+    unsafe {
+        let data = TICKS_PER_SEC.get();
+        *data = device_tree::get_device_info().cpu_time_base_freq
+    }
     set_next_trigger()
 }
 
@@ -25,7 +31,7 @@ pub fn set_next_trigger() {
 }
 
 fn get_ticks_per_sec() -> usize {
-    unsafe { TICKS_PER_SEC }
+    unsafe { *TICKS_PER_SEC.get() }
 }
 
 #[derive(Debug, Clone, Copy)]

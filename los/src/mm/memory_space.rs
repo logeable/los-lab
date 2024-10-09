@@ -2,11 +2,13 @@ use super::{
     address::{PhysPageNum, VPNRange, VirtAddr, VirtPageNum},
     frame_allocator::{self, Frame},
     page_table::{Flags, PageTable},
+    KERNEL_MEMORY_SPACE,
 };
 use crate::{
     config::{GUARD_PAGE_COUNT, KERNEL_STACK_SIZE, USER_STACK_SIZE},
     error,
     mm::address::{PhysAddr, PAGE_SIZE},
+    task::Pid,
 };
 use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
 use bitflags::bitflags;
@@ -297,10 +299,8 @@ impl MemorySpace {
         Ok(())
     }
 
-    pub fn add_app_kernel_stack_area(&mut self, app_id: usize) -> error::Result<usize> {
-        let end_va =
-            kernel_stack_top_va() - app_id * (KERNEL_STACK_SIZE + GUARD_PAGE_COUNT * PAGE_SIZE);
-        let start_va = end_va - KERNEL_STACK_SIZE;
+    pub fn add_app_kernel_stack_area(&mut self, pid: usize) -> error::Result<usize> {
+        let (start_va, end_va) = kernel_stack_position(pid);
         self.add_framed_area(start_va, end_va, MapPermission::R | MapPermission::W)?;
 
         Ok(end_va.into())
@@ -354,6 +354,27 @@ impl MemorySpace {
         self.add_map_area(MapArea::new(start_va, end_va, MapType::Identical, map_perm))
     }
 
+    pub fn remove_area_by_start_va(&mut self, start_va: VirtAddr) -> error::Result<()> {
+        let idx = self
+            .areas
+            .iter()
+            .enumerate()
+            .find(|(_, v)| v.vpn_range.start() == start_va.floor_vpn())
+            .map(|(idx, _)| idx)
+            .ok_or(error::KernelError::MapAreaNotFound(format!(
+                "map area not found: {:#x}",
+                start_va.0
+            )))?;
+
+        let area = self.areas.remove(idx);
+
+        for vpn in area.vpn_range {
+            self.l3_page_table.unmap(vpn);
+        }
+
+        Ok(())
+    }
+
     pub fn activate(&self) {
         let satp = self.l3_page_table.satp();
         satp::write(satp);
@@ -377,4 +398,88 @@ fn kernel_stack_top_va() -> VirtAddr {
 
 pub fn trap_context_va() -> VirtAddr {
     trampoline_va() - PAGE_SIZE
+}
+
+fn kernel_stack_position(pid: usize) -> (VirtAddr, VirtAddr) {
+    let end_va = kernel_stack_top_va() - pid * (KERNEL_STACK_SIZE + GUARD_PAGE_COUNT * PAGE_SIZE);
+    let start_va = end_va - KERNEL_STACK_SIZE;
+    (start_va, end_va)
+}
+
+#[derive(Debug)]
+pub struct KernelStack {
+    pid: usize,
+    sp: usize,
+}
+
+impl KernelStack {
+    pub fn map_in_kernel_memory_space(pid: &Pid) -> error::Result<Self> {
+        let sp = KERNEL_MEMORY_SPACE
+            .lock()
+            .add_app_kernel_stack_area(pid.pid())
+            .map_err(|err| {
+                error::KernelError::AddAppKernelStackArea(format!(
+                    "add app kernel stack area failed: {:?}",
+                    err
+                ))
+            })?;
+
+        Ok(Self { pid: pid.pid(), sp })
+    }
+
+    pub fn get_sp(&self) -> usize {
+        self.sp
+    }
+}
+
+impl Drop for KernelStack {
+    fn drop(&mut self) {
+        let (start_va, _end_va) = kernel_stack_position(self.pid);
+        if let Err(err) = KERNEL_MEMORY_SPACE.lock().remove_area_by_start_va(start_va) {
+            panic!("failed to dealloc kernel stack: {}", err);
+        }
+    }
+}
+
+pub fn translate_by_satp(
+    satp: usize,
+    start_va: usize,
+    len: usize,
+) -> error::Result<Vec<&'static mut [u8]>> {
+    let page_table = PageTable::from_satp(satp);
+    let end_va = start_va + len;
+
+    let mut result: Vec<&'static mut [u8]> = Vec::new();
+
+    let mut addr = start_va;
+    while addr < end_va {
+        let addr_va = VirtAddr::from(addr);
+
+        let page_vpn = addr_va.floor_vpn();
+        let page_ppn = page_table
+            .translate(page_vpn)
+            .ok_or(error::KernelError::Translate(
+                "translate start vpn failed".to_string(),
+            ))?
+            .ppn();
+
+        let page_start_va = VirtAddr::from(page_vpn);
+        let page_end_va = VirtAddr::from(page_vpn.offset(1));
+
+        let chunk_end_va = page_end_va.0.min(end_va);
+        let chunk_start_va = page_start_va.0.max(addr_va.0);
+        let chunk_page_offset = addr_va.0 - page_start_va.0;
+        let chunk_len = chunk_end_va - chunk_start_va;
+
+        let page_start_pa = PhysAddr::from(page_ppn);
+        let chunk_start_pa = page_start_pa.0 + chunk_page_offset;
+        let chunk =
+            unsafe { core::slice::from_raw_parts_mut(chunk_start_pa as *mut u8, chunk_len) };
+
+        addr += chunk_len;
+
+        result.push(chunk);
+    }
+
+    Ok(result)
 }

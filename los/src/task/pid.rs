@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 use alloc::vec::Vec;
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -48,9 +50,23 @@ impl PidAllocator {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Pid {
     pid: usize,
+}
+
+impl Pid {
+    pub fn pid(&self) -> usize {
+        self.pid
+    }
+}
+
+impl Deref for Pid {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pid
+    }
 }
 
 impl Drop for Pid {
