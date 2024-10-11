@@ -138,7 +138,7 @@ pub fn trap_return() -> ! {
     let trap_context_va = mm::trap_context_va();
     let trap_context_ptr: usize = trap_context_va.into();
 
-    let app_satp = task::get_current_task_satp().expect("current task satp must exist");
+    let app_satp = task::get_current_task_satp();
 
     unsafe {
         asm!(
@@ -164,8 +164,12 @@ pub struct TrapContext {
 }
 
 impl TrapContext {
-    pub fn set_sp(&mut self, sp: usize) {
+    pub fn set_user_sp(&mut self, sp: usize) {
         self.regs[2] = sp;
+    }
+
+    pub fn set_entry(&mut self, entry: usize) {
+        self.sepc = entry;
     }
 
     pub fn init(entry: usize, user_sp: usize, kernel_sp: usize) -> Self {
@@ -181,7 +185,7 @@ impl TrapContext {
             kernel_sp,
             trap_handler: process_trap as usize,
         };
-        ctx.set_sp(user_sp);
+        ctx.set_user_sp(user_sp);
 
         ctx
     }

@@ -3,13 +3,15 @@
 
 extern crate alloc;
 
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use user::{console::Stdin, entry, exec, fork, print, println, waitpid};
 
 entry!(main);
 
 const LF: u8 = 0x0a;
+const CR: u8 = 0x0d;
 const BS: u8 = 0x08;
+const DEL: u8 = 0x07f;
 
 fn main() -> i32 {
     println!("welcome to lshell");
@@ -20,12 +22,15 @@ fn main() -> i32 {
         let c = Stdin::read_u8().unwrap();
 
         match c {
-            LF => {
+            CR | LF => {
+                println!("");
                 if !line.is_empty() {
-                    let program = line.trim();
+                    let program = line.trim().to_string();
+                    line.clear();
+
                     match fork().expect("fork must succeed") {
                         user::ForkProc::Child => {
-                            if let Err(e) = exec(program) {
+                            if let Err(e) = exec(&program) {
                                 println!("exec {} failed: {}", line, e);
                             }
                         }
@@ -43,7 +48,7 @@ fn main() -> i32 {
                 }
                 prompt();
             }
-            BS => {
+            BS | DEL => {
                 if !line.is_empty() {
                     line.pop();
                     print!("{}", BS as char);

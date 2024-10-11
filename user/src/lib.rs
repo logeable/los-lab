@@ -164,8 +164,12 @@ pub fn waitpid(pid: usize) -> Result<WaitResult> {
         } else if ret == 0 {
             sched_yield();
         } else {
-            let pid = ret as usize;
-            return Ok(WaitResult { pid, exit_code });
+            let ret_pid: usize = ret as usize;
+            assert_eq!(pid, ret_pid);
+            return Ok(WaitResult {
+                pid: ret_pid,
+                exit_code,
+            });
         }
     }
 }

@@ -1,11 +1,14 @@
 use core::fmt::Debug;
 
+use alloc::format;
+use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{string::ToString, vec};
 use bitflags::bitflags;
 
 use crate::error;
 
+use super::address::{PhysAddr, VirtAddr};
 use super::{
     address::{PhysPageNum, VirtPageNum},
     frame_allocator::{self, Frame},
@@ -196,7 +199,158 @@ impl PageTable {
         }
     }
 
-    pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
-        self.find_pte_mut(vpn).map(|pte| unsafe { *pte })
+    pub fn translate_vpn(&self, vpn: VirtPageNum) -> error::Result<PageTableEntry> {
+        self.find_pte_mut(vpn)
+            .map(|pte| unsafe { *pte })
+            .ok_or(error::KernelError::PteNotFound(format!(
+                "find pte by vpn failed, vpn: {:?}",
+                vpn
+            )))
+    }
+
+    pub fn translate_va(&self, va: VirtAddr) -> error::Result<PhysAddr> {
+        let pte = self.translate_vpn(va.floor_vpn())?;
+
+        let pa = PhysAddr::from(pte.ppn());
+        Ok(pa.offset(va.page_offset()))
+    }
+
+    pub fn translate_c_str(&self, ptr: VirtAddr) -> error::Result<String> {
+        let mut s = String::new();
+
+        let mut pa = self.translate_va(ptr)?;
+        loop {
+            let c = unsafe { *(pa.0 as *const u8) };
+            if c == 0 {
+                break;
+            }
+            s.push(c as char);
+            pa = pa.offset(1)
+        }
+
+        Ok(s)
+    }
+
+    pub fn translate_bytes(&self, ptr: VirtAddr, len: usize) -> error::Result<Vec<&mut [u8]>> {
+        let end_va = ptr + len;
+
+        let mut result: Vec<&'static mut [u8]> = Vec::new();
+
+        let mut addr = ptr;
+        while addr < end_va {
+            let addr_va = VirtAddr::from(addr);
+
+            let page_vpn = addr_va.floor_vpn();
+            let page_ppn = self
+                .translate_vpn(page_vpn)
+                .map_err(|e| {
+                    error::KernelError::Translate(format!("translate start vpn failed: {:?}", e))
+                })?
+                .ppn();
+
+            let page_start_va = VirtAddr::from(page_vpn);
+            let page_end_va = VirtAddr::from(page_vpn.offset(1));
+
+            let chunk_end_va = page_end_va.0.min(end_va.0);
+            let chunk_start_va = addr_va.0;
+            let chunk_page_offset = addr_va.0 - page_start_va.0;
+            let chunk_len = chunk_end_va - chunk_start_va;
+
+            let page_start_pa = PhysAddr::from(page_ppn);
+            let chunk_start_pa = page_start_pa.0 + chunk_page_offset;
+            let chunk =
+                unsafe { core::slice::from_raw_parts_mut(chunk_start_pa as *mut u8, chunk_len) };
+
+            addr = addr + chunk_len;
+
+            result.push(chunk);
+        }
+
+        Ok(result)
+    }
+
+    fn fork_dir_pte_frames(
+        &mut self,
+        src_ppns: &mut [PhysPageNum],
+        dst_ppns: &mut [PhysPageNum],
+    ) -> error::Result<(Vec<PhysPageNum>, Vec<PhysPageNum>)> {
+        let mut next_level_src_ppns = Vec::new();
+        let mut next_level_dst_ppns = Vec::new();
+
+        for (src_ppn, dst_ppn) in src_ppns.iter().zip(dst_ppns) {
+            let src_ptes = unsafe { src_ppn.get_pte_array_mut() };
+            let dst_ptes = unsafe { dst_ppn.get_pte_array_mut() };
+
+            for (src_pte, dst_pte) in src_ptes.iter_mut().zip(dst_ptes) {
+                if src_pte.is_valid() {
+                    match frame_allocator::alloc() {
+                        Some(frame) => {
+                            next_level_src_ppns.push(src_pte.ppn());
+                            next_level_dst_ppns.push(frame.ppn);
+
+                            *dst_pte = PageTableEntry::new(frame.ppn, src_pte.flags());
+                            self.dir_frames.push(frame);
+                        }
+                        None => {
+                            return Err(error::KernelError::AllocFrame(
+                                "allocate frame failed".to_string(),
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok((next_level_src_ppns, next_level_dst_ppns))
+    }
+
+    fn fork_data_pte_frames(
+        &mut self,
+        src_ppns: &mut [PhysPageNum],
+        dst_ppns: &mut [PhysPageNum],
+    ) -> error::Result<()> {
+        for (src_ppn, dst_ppn) in src_ppns.iter().zip(dst_ppns) {
+            let src_ptes = unsafe { src_ppn.get_pte_array_mut() };
+            let dst_ptes = unsafe { dst_ppn.get_pte_array_mut() };
+
+            for (src_pte, dst_pte) in src_ptes.iter_mut().zip(dst_ptes) {
+                if src_pte.is_valid() {
+                    match frame_allocator::alloc() {
+                        Some(frame) => {
+                            let src_ppn = src_pte.ppn();
+
+                            let dst = unsafe { frame.ppn.get_bytes_array_mut() };
+                            let src = unsafe { src_ppn.get_bytes_array_mut() };
+                            dst.copy_from_slice(src);
+
+                            *dst_pte = PageTableEntry::new(frame.ppn, src_pte.flags());
+                            self.dir_frames.push(frame);
+                        }
+                        None => {
+                            return Err(error::KernelError::AllocFrame(
+                                "allocate frame failed".to_string(),
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn fork_from_page_table(&mut self, src: &Self) -> error::Result<()> {
+        let mut src_l3_ppns = vec![src.root_ppn];
+        let mut dst_l3_ppns = vec![self.root_ppn];
+
+        let (mut src_l2_ppns, mut dst_l2_ppns) =
+            self.fork_dir_pte_frames(&mut src_l3_ppns, &mut dst_l3_ppns)?;
+
+        let (mut src_l1_ppns, mut dst_l1_ppns) =
+            self.fork_dir_pte_frames(&mut src_l2_ppns, &mut dst_l2_ppns)?;
+
+        self.fork_data_pte_frames(&mut src_l1_ppns, &mut dst_l1_ppns)?;
+
+        Ok(())
     }
 }

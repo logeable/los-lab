@@ -5,11 +5,13 @@ use alloc::string::String;
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum KernelError {
+    Common(String),
     InvalidSyscallId(String),
     AllocFrame(String),
     CreatePagetable(String),
     CreateMemorySpace(String),
     PagetableMap(String),
+    PteNotFound(String),
     MapArea(String),
     AddMapArea(String),
     VpnTranslate(String),

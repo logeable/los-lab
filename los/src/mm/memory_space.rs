@@ -8,6 +8,7 @@ use crate::{
     config::{GUARD_PAGE_COUNT, KERNEL_STACK_SIZE, USER_STACK_SIZE},
     error,
     mm::address::{PhysAddr, PAGE_SIZE},
+    println,
     task::Pid,
 };
 use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
@@ -19,7 +20,7 @@ use riscv::register::satp;
 #[derive(Debug)]
 struct MapArea {
     vpn_range: VPNRange,
-    leaf_frames: BTreeMap<VirtPageNum, Frame>,
+    data_frames: BTreeMap<VirtPageNum, Frame>,
     map_type: MapType,
     map_perm: MapPermission,
 }
@@ -32,11 +33,11 @@ impl MapArea {
         map_perm: MapPermission,
     ) -> Self {
         let vpn_range = VPNRange::new(start_va.floor_vpn(), end_va.ceil_vpn());
-        let leaf_frames = BTreeMap::new();
+        let data_frames = BTreeMap::new();
 
         Self {
             vpn_range,
-            leaf_frames,
+            data_frames,
             map_type,
             map_perm,
         }
@@ -50,11 +51,11 @@ impl MapArea {
                     match frame_allocator::alloc() {
                         Some(frame) => {
                             ppn = frame.ppn;
-                            self.leaf_frames.insert(vpn, frame);
+                            self.data_frames.insert(vpn, frame);
                         }
                         None => {
                             return Err(error::KernelError::AllocFrame(
-                                "alloc leaf frame failed".to_string(),
+                                "alloc data frame failed".to_string(),
                             ));
                         }
                     };
@@ -78,7 +79,7 @@ impl MapArea {
             match self.map_type {
                 MapType::Identical => (),
                 MapType::Framed => {
-                    self.leaf_frames.remove(&vpn);
+                    self.data_frames.remove(&vpn);
                     page_table.unmap(vpn);
                 }
             }
@@ -86,7 +87,7 @@ impl MapArea {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MapType {
     Identical,
     Framed,
@@ -328,7 +329,11 @@ impl MemorySpace {
         data.chunks(PAGE_SIZE)
             .zip(vpn_range)
             .for_each(|(page_data, vpn)| {
-                let ppn = self.l3_page_table.translate(vpn).unwrap().ppn();
+                let ppn = self
+                    .l3_page_table
+                    .translate_vpn(vpn)
+                    .expect("translate vpn in when adding map data area failed")
+                    .ppn();
                 let page_data_dest = unsafe { ppn.get_bytes_array_mut() };
                 page_data_dest[..page_data.len()].copy_from_slice(page_data);
             });
@@ -386,6 +391,29 @@ impl MemorySpace {
     pub fn page_table(&self) -> &PageTable {
         &self.l3_page_table
     }
+
+    pub fn fork(&self) -> error::Result<Self> {
+        let mut forked_mem_space = Self::new_bare().map_err(|e| {
+            error::KernelError::CreateMemorySpace(format!("create memory space failed: {:?}", e))
+        })?;
+
+        forked_mem_space
+            .l3_page_table
+            .fork_from_page_table(&self.l3_page_table)
+            .map_err(|e| error::KernelError::Common(format!("fork page table failed: {:?}", e)))?;
+
+        Ok(forked_mem_space)
+    }
+
+    pub fn trap_context_mut_ptr<T>(&mut self) -> *mut T {
+        let trap_context_ppn = self
+            .page_table()
+            .translate_vpn(trap_context_va().floor_vpn())
+            .expect("translate trap context va must succeed")
+            .ppn();
+
+        unsafe { trap_context_ppn.get_mut::<T>() }
+    }
 }
 
 pub fn trampoline_va() -> VirtAddr {
@@ -439,47 +467,4 @@ impl Drop for KernelStack {
             panic!("failed to dealloc kernel stack: {}", err);
         }
     }
-}
-
-pub fn translate_by_satp(
-    satp: usize,
-    start_va: usize,
-    len: usize,
-) -> error::Result<Vec<&'static mut [u8]>> {
-    let page_table = PageTable::from_satp(satp);
-    let end_va = start_va + len;
-
-    let mut result: Vec<&'static mut [u8]> = Vec::new();
-
-    let mut addr = start_va;
-    while addr < end_va {
-        let addr_va = VirtAddr::from(addr);
-
-        let page_vpn = addr_va.floor_vpn();
-        let page_ppn = page_table
-            .translate(page_vpn)
-            .ok_or(error::KernelError::Translate(
-                "translate start vpn failed".to_string(),
-            ))?
-            .ppn();
-
-        let page_start_va = VirtAddr::from(page_vpn);
-        let page_end_va = VirtAddr::from(page_vpn.offset(1));
-
-        let chunk_end_va = page_end_va.0.min(end_va);
-        let chunk_start_va = page_start_va.0.max(addr_va.0);
-        let chunk_page_offset = addr_va.0 - page_start_va.0;
-        let chunk_len = chunk_end_va - chunk_start_va;
-
-        let page_start_pa = PhysAddr::from(page_ppn);
-        let chunk_start_pa = page_start_pa.0 + chunk_page_offset;
-        let chunk =
-            unsafe { core::slice::from_raw_parts_mut(chunk_start_pa as *mut u8, chunk_len) };
-
-        addr += chunk_len;
-
-        result.push(chunk);
-    }
-
-    Ok(result)
 }

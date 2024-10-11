@@ -1,6 +1,5 @@
 use crate::device_tree;
 use crate::error;
-use crate::task::Pid;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -13,7 +12,6 @@ mod page_table;
 #[allow(unused_imports)]
 pub use heap::kernel_heap_stats;
 pub use memory_space::trampoline_va;
-pub use memory_space::translate_by_satp;
 pub use memory_space::trap_context_va;
 pub use memory_space::KernelStack;
 pub use memory_space::MemorySpace;

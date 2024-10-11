@@ -1,16 +1,15 @@
 use alloc::{
     string::{String, ToString},
-    sync::Arc,
     vec::Vec,
 };
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-use crate::{error, mm, trap::TrapContext};
+use crate::{error, mm, task::tcb::TaskStatus, trap::TrapContext};
 
 use super::{
-    manager::{fetch_from_runq, push_to_runq, switch_task},
-    TaskContext, TaskControlBlock, TaskStatus,
+    manager::{self, fetch_from_runq, push_to_runq, switch_task},
+    tcb::{TaskContext, TaskControlBlock},
 };
 
 lazy_static! {
@@ -34,13 +33,16 @@ impl Processor {
         self.current.take()
     }
 
-    fn current(&self) -> Option<&TaskControlBlock> {
-        self.current.as_ref()
+    fn current_mut(&mut self) -> Option<&mut TaskControlBlock> {
+        self.current.as_mut()
     }
 }
 
-pub fn take_current() -> Option<TaskControlBlock> {
-    PROCESSOR.lock().take_current()
+pub fn take_current() -> TaskControlBlock {
+    PROCESSOR
+        .lock()
+        .take_current()
+        .expect("current tcb must exist")
 }
 
 pub fn run_tasks() -> ! {
@@ -49,10 +51,11 @@ pub fn run_tasks() -> ! {
 
         if let Some(mut next_tcb) = fetch_from_runq() {
             next_tcb.update_task_status(TaskStatus::Running);
-            let next_task_context = &next_tcb.context as *const TaskContext;
-            let idle_task_context = &mut processor.idle_task_context as *mut TaskContext;
-
             processor.current = Some(next_tcb);
+
+            let idle_task_context = &mut processor.idle_task_context as *mut TaskContext;
+            let next_task_context =
+                &processor.current.as_ref().unwrap().context as *const TaskContext;
 
             drop(processor);
 
@@ -71,7 +74,7 @@ pub fn schedule(switched_task_context: *mut TaskContext) {
 }
 
 pub fn exit_current_task_and_schedule() -> ! {
-    let mut tcb = take_current().expect("current task must exist");
+    let mut tcb = take_current();
     tcb.status = TaskStatus::Exited;
     schedule(&mut tcb.context);
 
@@ -79,43 +82,51 @@ pub fn exit_current_task_and_schedule() -> ! {
 }
 
 pub fn suspend_current_task_and_schedule() {
-    let mut tcb = take_current().expect("current task must exist");
+    let mut tcb = take_current();
     tcb.status = TaskStatus::Ready;
-    let task_context = &mut tcb.context as *mut TaskContext;
-    push_to_runq(tcb);
+    let task_context = push_to_runq(tcb);
     schedule(task_context);
 }
 
 pub fn get_current_task_name() -> Option<String> {
-    PROCESSOR.lock().current().map(|v| v.name.clone())
+    PROCESSOR.lock().current_mut().map(|tcb| tcb.name.clone())
 }
 
 pub fn get_current_task_trap_context() -> Option<*mut TrapContext> {
-    let processor = PROCESSOR.lock();
-    let tcb = processor.current().expect("current task must exist");
-    let trap_context_va = mm::trap_context_va();
-    let trap_context_ppn = tcb
-        .mem_space
-        .page_table()
-        .translate(trap_context_va.floor_vpn())
-        .unwrap()
-        .ppn();
-    let trap_context = unsafe { trap_context_ppn.get_mut::<TrapContext>() };
-
-    Some(trap_context)
+    PROCESSOR
+        .lock()
+        .current_mut()
+        .map(|tcb| tcb.get_trap_context_ptr())
 }
 
-pub fn get_current_task_satp() -> Option<usize> {
-    let processor = PROCESSOR.lock();
-    processor.current().map(|v| v.mem_space.page_table().satp())
+pub fn get_current_task_satp() -> usize {
+    PROCESSOR
+        .lock()
+        .current_mut()
+        .map(|tcb| tcb.mem_space.page_table().satp())
+        .expect("current task satp must exist")
 }
 
-pub fn translate_by_current_task_pagetable(
-    start_va: usize,
-    len: usize,
-) -> error::Result<Vec<&'static mut [u8]>> {
-    let satp = get_current_task_satp().ok_or(error::KernelError::CurrentTaskNotFound(
-        "current task not found".to_string(),
-    ))?;
-    mm::translate_by_satp(satp, start_va, len)
+pub fn fork_current_task() -> error::Result<usize> {
+    let mut processor = PROCESSOR.lock();
+    let current_tcb = processor.current_mut().expect("current tcb must exist");
+
+    let forked_tcb = manager::fork_tcb(&current_tcb)?;
+    let pid = forked_tcb.pid.pid();
+
+    push_to_runq(forked_tcb);
+
+    Ok(pid)
+}
+
+pub fn exec_in_tcb(path: &str) -> error::Result<()> {
+    let tcb = PROCESSOR
+        .lock()
+        .current
+        .as_mut()
+        .map(|v| v as *mut TaskControlBlock)
+        .expect("current tcb must exist");
+
+    let tcb = unsafe { &mut *tcb };
+    manager::load_elf_in_task(path, tcb)
 }

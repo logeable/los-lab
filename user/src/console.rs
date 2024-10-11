@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use crate::{read, write};
+use crate::{read, sched_yield, write};
 
 pub const STDOUT: usize = 1;
 pub const STDIN: usize = 0;
@@ -42,10 +42,15 @@ impl Stdin {
     pub fn read_u8() -> crate::error::Result<u8> {
         let mut buf = [0u8; 1];
 
-        let len = Self::read(&mut buf)?;
+        loop {
+            let len = Self::read(&mut buf)?;
+            if len == 0 {
+                sched_yield();
+            }
 
-        if len == 0 {
-            return Err(crate::error::Error::UnexpectedEof);
+            if len > 0 {
+                break;
+            }
         }
 
         Ok(buf[0])

@@ -18,6 +18,10 @@ impl PhysAddr {
     pub fn ceil_ppn(&self) -> PhysPageNum {
         PhysPageNum((self.0 + PAGE_SIZE - 1) / PAGE_SIZE)
     }
+
+    pub fn offset(self, offset: usize) -> Self {
+        Self(self.0 + offset)
+    }
 }
 
 impl From<usize> for PhysAddr {
@@ -49,12 +53,16 @@ impl VirtAddr {
         VirtPageNum(self.0 / PAGE_SIZE)
     }
 
+    pub fn page_offset(&self) -> usize {
+        self.0 % PAGE_SIZE
+    }
+
     pub fn ceil_vpn(&self) -> VirtPageNum {
         VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
     }
 
     pub fn is_page_aligned(&self) -> bool {
-        self.0 % PAGE_SIZE == 0
+        self.page_offset() == 0
     }
 }
 
@@ -142,7 +150,7 @@ impl VirtPageNum {
         (self.0 >> 18) & 0x1ff
     }
 
-    pub fn offset(&self, offset: usize) -> Self {
+    pub fn offset(self, offset: usize) -> Self {
         Self(self.0 + offset)
     }
 }
