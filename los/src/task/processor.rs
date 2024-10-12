@@ -2,11 +2,8 @@ use super::{
     manager::{self, fetch_from_runq, push_to_runq, switch_task},
     tcb::{TaskContext, TaskControlBlockWrapper},
 };
-use crate::{error, println, task::tcb::TaskStatus, trap::TrapContext};
-use alloc::{
-    format,
-    string::{String, ToString},
-};
+use crate::{error, task::tcb::TaskStatus, trap::TrapContext};
+use alloc::format;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -116,13 +113,6 @@ pub fn suspend_current_task_and_schedule() {
     schedule(task_context);
 }
 
-pub fn get_current_task_name() -> Option<String> {
-    PROCESSOR
-        .lock()
-        .current()
-        .map(|tcb| tcb.lock().name.clone())
-}
-
 pub fn get_current_task_trap_context() -> Option<*mut TrapContext> {
     PROCESSOR
         .lock()
@@ -164,31 +154,26 @@ pub fn exec_in_tcb(path: &str) -> error::Result<()> {
 }
 
 pub fn wait_child_exit(arg: WaitChildArg) -> error::Result<Option<ExitStatus>> {
-    let tcb = PROCESSOR
-        .lock()
-        .current()
-        .expect("current tcb must exist")
-        .clone();
-
-    let exited_child = match arg {
-        WaitChildArg::Any => tcb
+    let exited_child = {
+        let tcb = PROCESSOR
             .lock()
-            .children
-            .iter()
-            .find(|v| {
+            .current()
+            .expect("current tcb must exist")
+            .clone();
+        let mut tcb = tcb.lock();
+
+        let index = match arg {
+            WaitChildArg::Any => tcb.children.iter().position(|v| {
                 let child_tcb = v.lock();
                 matches!(child_tcb.status, TaskStatus::Exited(_))
-            })
-            .cloned(),
-        WaitChildArg::One(pid) => tcb
-            .lock()
-            .children
-            .iter()
-            .find(|v| {
+            }),
+            WaitChildArg::One(pid) => tcb.children.iter().position(|v| {
                 let child_tcb = v.lock();
                 child_tcb.pid.pid() == pid && matches!(child_tcb.status, TaskStatus::Exited(_))
-            })
-            .cloned(),
+            }),
+        };
+
+        index.map(|v| tcb.children.remove(v))
     };
 
     match exited_child {

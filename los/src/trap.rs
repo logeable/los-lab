@@ -79,13 +79,21 @@ pub fn process_trap() -> ! {
                 processor::exit_current_task_and_schedule(-1)
             }
             scause::Exception::UserEnvCall => {
-                trap_context.regs[10] = syscall::syscall(
+                let ret = syscall::syscall(
                     trap_context.regs[17],
                     trap_context.regs[10],
                     trap_context.regs[11],
                     trap_context.regs[12],
                 );
+
                 trap_context.sepc += 4;
+
+                let trap_context = unsafe {
+                    &mut *processor::get_current_task_trap_context()
+                        .expect("current task trap context must exist")
+                };
+
+                trap_context.regs[10] = ret;
             }
             scause::Exception::StoreFault => {
                 println!(
