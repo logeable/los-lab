@@ -35,7 +35,6 @@ fn main() -> i32 {
                             }
                         }
                         user::ForkProc::Parent(pid) => {
-                            println!("subprocess {}({}) started", program, pid);
                             let wr = waitpid(pid).expect("waitpid must succeed");
                             assert_eq!(pid, wr.pid);
 

@@ -4,12 +4,6 @@ use crate::{
 };
 
 pub fn sys_exit(exit_code: i32) -> ! {
-    println!(
-        "app {:?} exit, code: {}",
-        processor::get_current_task_name(),
-        exit_code,
-    );
-
     processor::exit_current_task_and_schedule(exit_code)
 }
 

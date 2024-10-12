@@ -12,7 +12,6 @@ fn main() -> i32 {
                 exec(shell).expect("exec shell must succeed");
             }
             user::ForkProc::Parent(pid) => loop {
-                println!("subprocess {}({}) started", shell, pid);
                 loop {
                     let wr = wait().expect("wait must succeed");
                     println!("child {} exited with error code: {}", wr.pid, wr.exit_code);
