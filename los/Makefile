@@ -31,9 +31,13 @@ gdb = RUST_GDB=$(GDB_PATH) rust-gdb
 qemu: ${KERNEL_BIN} 
 	${QEMU} ${qemu_opts}
 
-gdb: ${KERNEL_BIN}
-	${QEMU} ${qemu_opts} -s -S &
-	@sleep 1
+gdb:
+	tmux new-session -s gdb -d 'make gdb-server' \; split-window -h -d 'make gdb-client' \; attach
+
+gdb-server: ${KERNEL_BIN}
+	${QEMU} ${qemu_opts} -s -S
+
+gdb-client:
 	$(gdb) \
 		-q \
 		-ex 'set confirm off' \
@@ -42,7 +46,7 @@ gdb: ${KERNEL_BIN}
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote 127.0.0.1:1234'
 		
-	pkill -l -n ${QEMU} 
+	tmux kill-session -t gdb 
 
 .PHONY: dtb.out
 dtb.out:
