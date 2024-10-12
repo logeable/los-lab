@@ -8,8 +8,7 @@ use crate::{
     config::{GUARD_PAGE_COUNT, KERNEL_STACK_SIZE, USER_STACK_SIZE},
     error,
     mm::address::{PhysAddr, PAGE_SIZE},
-    println,
-    task::Pid,
+    task::pid::Pid,
 };
 use alloc::{collections::btree_map::BTreeMap, format, string::ToString, vec::Vec};
 use bitflags::bitflags;

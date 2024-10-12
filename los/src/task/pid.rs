@@ -10,7 +10,7 @@ lazy_static! {
     static ref PID_ALLOCATOR: Mutex<PidAllocator> = Mutex::new(PidAllocator::new());
 }
 
-pub struct PidAllocator {
+struct PidAllocator {
     current: usize,
     end: usize,
     recycled: Vec<usize>,

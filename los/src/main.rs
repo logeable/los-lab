@@ -21,6 +21,8 @@ mod trap;
 
 use core::{arch::global_asm, panic::PanicInfo};
 
+use task::processor;
+
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("trap.asm"));
 global_asm!(include_str!("app.asm"));
@@ -44,7 +46,7 @@ extern "C" fn rust_main(_hartid: usize, device_tree_pa: usize) -> ! {
     task::init();
     task::print_apps();
 
-    task::run_tasks();
+    processor::run_tasks();
 }
 
 fn print_kernel_info() {

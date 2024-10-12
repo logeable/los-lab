@@ -1,6 +1,8 @@
 use crate::{
     mm::{self},
-    println, syscall, task, timer,
+    println, syscall,
+    task::processor,
+    timer,
 };
 use core::arch::asm;
 use riscv::register::{scause, sepc, sie, sstatus, stval, stvec};
@@ -48,14 +50,15 @@ pub fn process_trap() -> ! {
     let stval = stval::read();
 
     let trap_context = unsafe {
-        &mut *task::get_current_task_trap_context().expect("current task trap context must exist")
+        &mut *processor::get_current_task_trap_context()
+            .expect("current task trap context must exist")
     };
 
     match scause.cause() {
         scause::Trap::Interrupt(intr) => match intr {
             scause::Interrupt::SupervisorTimer => {
                 timer::set_next_trigger();
-                task::suspend_current_task_and_schedule()
+                processor::suspend_current_task_and_schedule()
             }
             _ => {
                 unimplemented!("Interrupt handler not implemented: {:?}", intr);
@@ -73,7 +76,7 @@ pub fn process_trap() -> ! {
                     trap_context,
                 );
 
-                task::exit_current_task_and_schedule()
+                processor::exit_current_task_and_schedule(-1)
             }
             scause::Exception::UserEnvCall => {
                 trap_context.regs[10] = syscall::syscall(
@@ -91,7 +94,7 @@ pub fn process_trap() -> ! {
                     sepc::read(),
                     trap_context
                 );
-                task::exit_current_task_and_schedule()
+                processor::exit_current_task_and_schedule(-1)
             }
             scause::Exception::StorePageFault => {
                 println!(
@@ -100,7 +103,7 @@ pub fn process_trap() -> ! {
                     sepc::read(),
                     trap_context
                 );
-                task::exit_current_task_and_schedule()
+                processor::exit_current_task_and_schedule(-1)
             }
             scause::Exception::InstructionFault => {
                 println!(
@@ -109,7 +112,7 @@ pub fn process_trap() -> ! {
                     sepc::read(),
                     trap_context
                 );
-                task::exit_current_task_and_schedule()
+                processor::exit_current_task_and_schedule(-1)
             }
             scause::Exception::InstructionPageFault => {
                 println!(
@@ -118,7 +121,7 @@ pub fn process_trap() -> ! {
                     sepc::read(),
                     trap_context
                 );
-                task::exit_current_task_and_schedule()
+                processor::exit_current_task_and_schedule(-1)
             }
             _ => {
                 unimplemented!("Exception handler not implemented: {:?}", ex);
@@ -138,7 +141,7 @@ pub fn trap_return() -> ! {
     let trap_context_va = mm::trap_context_va();
     let trap_context_ptr: usize = trap_context_va.into();
 
-    let app_satp = task::get_current_task_satp();
+    let app_satp = processor::get_current_task_satp();
 
     unsafe {
         asm!(

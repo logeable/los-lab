@@ -1,12 +1,13 @@
 use core::mem;
 
 use crate::{
-    mm, println, task,
+    mm, println,
+    task::processor,
     timer::{self, TimeVal},
 };
 
 pub fn sys_gettimeofday(tp: *mut TimeVal, _tzp: usize) -> isize {
-    let satp = task::get_current_task_satp();
+    let satp = processor::get_current_task_satp();
     match mm::PageTable::from_satp(satp)
         .translate_bytes((tp as usize).into(), mem::size_of::<TimeVal>())
     {

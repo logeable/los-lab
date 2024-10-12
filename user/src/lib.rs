@@ -133,12 +133,12 @@ pub fn exec(path: &str) -> Result<()> {
 }
 
 #[derive(Debug)]
-pub struct WaitResult {
+pub struct ExitStatus {
     pub pid: usize,
     pub exit_code: i32,
 }
 
-pub fn wait() -> Result<WaitResult> {
+pub fn wait() -> Result<ExitStatus> {
     let mut exit_code = 0;
 
     loop {
@@ -149,12 +149,12 @@ pub fn wait() -> Result<WaitResult> {
             sched_yield();
         } else {
             let pid = ret as usize;
-            return Ok(WaitResult { pid, exit_code });
+            return Ok(ExitStatus { pid, exit_code });
         }
     }
 }
 
-pub fn waitpid(pid: usize) -> Result<WaitResult> {
+pub fn waitpid(pid: usize) -> Result<ExitStatus> {
     let mut exit_code = 0;
 
     loop {
@@ -166,7 +166,7 @@ pub fn waitpid(pid: usize) -> Result<WaitResult> {
         } else {
             let ret_pid: usize = ret as usize;
             assert_eq!(pid, ret_pid);
-            return Ok(WaitResult {
+            return Ok(ExitStatus {
                 pid: ret_pid,
                 exit_code,
             });

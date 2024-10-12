@@ -38,7 +38,7 @@ gdb: ${KERNEL_BIN}
 		-q \
 		-ex 'set confirm off' \
 		-ex 'file ${FULL_KERNEL}' \
-		-ex 'add-symbol-file ../user/target/riscv64gc-unknown-none-elf/debug/lshell' \
+		-ex 'add-symbol-file ../user/target/riscv64gc-unknown-none-elf/debug/init' \
 		-ex 'set arch riscv:rv64' \
 		-ex 'target remote 127.0.0.1:1234'
 		

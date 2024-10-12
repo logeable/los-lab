@@ -1,21 +1,29 @@
-use alloc::string::{String, ToString};
-
+use super::pid::Pid;
 use crate::{
-    error,
     mm::{self, KernelStack, MemorySpace},
     trap::TrapContext,
 };
+use alloc::{string::String, sync::Arc, vec::Vec};
+use spin::Mutex;
 
-use super::{manager, pid, Pid};
+pub type TaskControlBlockWrapper = Arc<Mutex<TaskControlBlock>>;
+
+impl From<TaskControlBlock> for TaskControlBlockWrapper {
+    fn from(value: TaskControlBlock) -> Self {
+        Self::new(Mutex::new(value))
+    }
+}
 
 #[derive(Debug)]
 pub struct TaskControlBlock {
     pub name: String,
     pub pid: Pid,
-    pub context: TaskContext,
-    pub status: TaskStatus,
     pub kernel_stack: KernelStack,
     pub mem_space: MemorySpace,
+    pub context: TaskContext,
+    pub status: TaskStatus,
+    pub parent: Option<TaskControlBlockWrapper>,
+    pub children: Vec<TaskControlBlockWrapper>,
 }
 
 impl TaskControlBlock {
@@ -33,6 +41,8 @@ impl TaskControlBlock {
             status: TaskStatus::Ready,
             kernel_stack,
             mem_space,
+            parent: None,
+            children: Vec::new(),
         }
     }
 
@@ -48,8 +58,6 @@ impl TaskControlBlock {
 
         trap_context
     }
-
-    pub fn exec(&self, elf_data: &[u8]) {}
 
     pub fn update_task_status(&mut self, status: TaskStatus) {
         self.status = status;
@@ -76,5 +84,14 @@ impl TaskContext {
 pub enum TaskStatus {
     Ready,
     Running,
-    Exited,
+    Exited(i32),
+}
+
+impl TaskStatus {
+    pub fn get_exited_code(&self) -> Option<i32> {
+        match self {
+            TaskStatus::Exited(code) => Some(*code),
+            _ => None,
+        }
+    }
 }

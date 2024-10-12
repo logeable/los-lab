@@ -1,6 +1,6 @@
 use alloc::vec;
 
-use crate::{mm, println, sbi, task};
+use crate::{mm, println, sbi, task::processor};
 
 const STDIN: usize = 0;
 const STDOUT: usize = 1;
@@ -19,7 +19,7 @@ pub fn sys_read(fd: usize, user_buf: *mut u8, len: usize) -> isize {
                 return read_len;
             }
 
-            let satp = task::get_current_task_satp();
+            let satp = processor::get_current_task_satp();
             match mm::PageTable::from_satp(satp).translate_bytes((user_buf as usize).into(), len) {
                 Ok(chunks) => {
                     let mut read_data = &read_buf[..read_len as usize];
@@ -50,7 +50,7 @@ pub fn sys_read(fd: usize, user_buf: *mut u8, len: usize) -> isize {
 pub fn sys_write(fd: usize, data: *const u8, len: usize) -> isize {
     match fd {
         STDOUT => {
-            let satp = task::get_current_task_satp();
+            let satp = processor::get_current_task_satp();
             match mm::PageTable::from_satp(satp).translate_bytes((data as usize).into(), len) {
                 Ok(chunks) => {
                     let mut len = 0usize;

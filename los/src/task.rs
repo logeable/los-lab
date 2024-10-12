@@ -1,24 +1,13 @@
-mod initproc;
 mod loader;
-mod manager;
-mod pid;
-mod processor;
+pub mod manager;
+pub mod pid;
+pub mod processor;
 mod tcb;
 
 use crate::println;
 
-pub use pid::Pid;
-pub use processor::exec_in_tcb;
-pub use processor::exit_current_task_and_schedule;
-pub use processor::fork_current_task;
-pub use processor::get_current_task_name;
-pub use processor::get_current_task_satp;
-pub use processor::get_current_task_trap_context;
-pub use processor::run_tasks;
-pub use processor::suspend_current_task_and_schedule;
-
 pub fn init() {
-    initproc::init();
+    manager::create_init_proc_and_push_to_runq().expect("create init proc must succeed");
 }
 
 pub(crate) fn print_apps() {

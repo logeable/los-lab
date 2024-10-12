@@ -24,6 +24,7 @@ pub enum KernelError {
     AddAppKernelStackArea(String),
     MapAreaNotFound(String),
     CurrentTaskNotFound(String),
+    NoExitedChildTcb(String),
 }
 
 impl core::error::Error for KernelError {}

@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use core::mem;
 
 use alloc::format;
 use alloc::string::String;
@@ -267,6 +268,19 @@ impl PageTable {
         }
 
         Ok(result)
+    }
+
+    pub fn translate_write<T>(&self, dst: *mut T, src: &T) -> error::Result<()> {
+        let size = mem::size_of::<T>();
+        let src_ptr = src as *const _ as usize;
+
+        for i in 0..size {
+            let dst_va = dst as usize + i;
+            let dst_pa = self.translate_va(dst_va.into())?;
+            unsafe { *(dst_pa.0 as *mut u8) = *((src_ptr + i) as *mut u8) }
+        }
+
+        Ok(())
     }
 
     fn fork_dir_pte_frames(

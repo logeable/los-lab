@@ -1,25 +1,26 @@
-use core::ffi::{c_char, CStr};
-
-use crate::{mm, println, task};
+use crate::{
+    mm, println,
+    task::processor::{self, WaitChildArg},
+};
 
 pub fn sys_exit(exit_code: i32) -> ! {
     println!(
         "app {:?} exit, code: {}",
-        task::get_current_task_name(),
+        processor::get_current_task_name(),
         exit_code,
     );
 
-    task::exit_current_task_and_schedule()
+    processor::exit_current_task_and_schedule(exit_code)
 }
 
 pub fn sys_sched_yield() -> isize {
-    task::suspend_current_task_and_schedule();
+    processor::suspend_current_task_and_schedule();
 
     0
 }
 
 pub fn sys_fork() -> isize {
-    match task::fork_current_task() {
+    match processor::fork_current_task() {
         Ok(pid) => pid as isize,
         Err(err) => {
             println!("[PROC] sys fork failed: {:?}", err);
@@ -29,10 +30,10 @@ pub fn sys_fork() -> isize {
 }
 
 pub fn sys_exec(path: *const u8) -> isize {
-    let satp = task::get_current_task_satp();
+    let satp = processor::get_current_task_satp();
     let page_table = mm::PageTable::from_satp(satp);
     match page_table.translate_c_str((path as usize).into()) {
-        Ok(path) => match task::exec_in_tcb(&path) {
+        Ok(path) => match processor::exec_in_tcb(&path) {
             Ok(()) => 0,
             Err(err) => {
                 println!("[PROC] sys exec failed: {:?}", err);
@@ -47,5 +48,25 @@ pub fn sys_exec(path: *const u8) -> isize {
 }
 
 pub fn sys_wait(pid: isize, exit_code: *mut i32) -> isize {
-    0
+    let wait_child_arg = match WaitChildArg::from_pid(pid) {
+        Ok(wait_child_arg) => wait_child_arg,
+        Err(err) => {
+            println!("[PROC] build WaitChildArg failed: {:?}", err);
+            return -1;
+        }
+    };
+
+    match processor::wait_child_exit(wait_child_arg).expect("wait child must succeed") {
+        Some(result) => {
+            let satp = processor::get_current_task_satp();
+            match mm::PageTable::from_satp(satp).translate_write(exit_code, &result.exit_code) {
+                Ok(_) => result.pid as isize,
+                Err(err) => {
+                    println!("[PROC] write exit_code to user buf failed: {:?}", err);
+                    -2
+                }
+            }
+        }
+        None => 0,
+    }
 }
