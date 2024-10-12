@@ -31,17 +31,19 @@ fn main() -> i32 {
                     match fork().expect("fork must succeed") {
                         user::ForkProc::Child => {
                             if let Err(e) = exec(&program) {
-                                println!("exec {} failed: {}", line, e);
+                                println!("exec {:?} failed: {}", program, e);
                             }
                         }
                         user::ForkProc::Parent(pid) => {
                             let wr = waitpid(pid).expect("waitpid must succeed");
                             assert_eq!(pid, wr.pid);
 
-                            println!(
-                                "subprocess {}({}) exited with {}",
-                                program, pid, wr.exit_code
-                            )
+                            if wr.exit_code != 0 {
+                                println!(
+                                    "subprocess {}({}) exited with {}",
+                                    program, pid, wr.exit_code
+                                )
+                            }
                         }
                     }
                 }
