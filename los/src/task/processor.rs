@@ -84,12 +84,11 @@ pub fn exit_current_task_and_schedule(exit_code: i32) -> ! {
         }
     }
 
-    // FIXME: release resources: memoryset, pid, kernel stack
-
     let task_context = {
         let mut tcb = current_tcb.lock();
         &mut tcb.context as *mut TaskContext
     };
+    drop(current_tcb);
 
     schedule(task_context);
 
