@@ -123,6 +123,15 @@ pub fn process_trap() -> ! {
                 );
                 processor::exit_current_task_and_schedule(-1)
             }
+            scause::Exception::LoadPageFault => {
+                println!(
+                    "[TRAP] load page fault: {:#x} {:#x} {:?}",
+                    stval,
+                    sepc::read(),
+                    trap_context
+                );
+                processor::exit_current_task_and_schedule(-1)
+            }
             _ => {
                 unimplemented!("Exception handler not implemented: {:?}", ex);
             }
