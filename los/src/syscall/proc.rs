@@ -64,3 +64,7 @@ pub fn sys_wait(pid: isize, exit_code: *mut i32) -> isize {
         None => 0,
     }
 }
+
+pub fn sys_getpid() -> isize {
+    processor::getpid() as isize
+}

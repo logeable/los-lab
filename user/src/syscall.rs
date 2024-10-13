@@ -7,6 +7,7 @@ pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 pub const SYS_SCHED_YIELD: usize = 124;
 pub const SYS_GETTIMEOFDAY: usize = 169;
+pub const SYS_GETPID: usize = 172;
 pub const SYS_FORK: usize = 220;
 pub const SYS_EXEC: usize = 221;
 pub const SYS_WAITPID: usize = 260;
@@ -43,6 +44,10 @@ pub fn sys_exec(path: &CStr) -> isize {
 
 pub fn sys_wait(pid: isize, exit_code: &mut i32) -> isize {
     syscall_2(SYS_WAITPID, pid as usize, exit_code as *mut i32 as usize)
+}
+
+pub fn sys_getpid() -> usize {
+    syscall_0(SYS_GETPID) as usize
 }
 
 #[allow(dead_code)]

@@ -9,6 +9,7 @@ mod syscall;
 
 use core::{ffi::CStr, panic::PanicInfo};
 use error::{Error, Result};
+use syscall::sys_getpid;
 
 const MAX_PATH_LEN: usize = 128;
 
@@ -172,4 +173,8 @@ pub fn waitpid(pid: usize) -> Result<ExitStatus> {
             });
         }
     }
+}
+
+pub fn getpid() -> usize {
+    sys_getpid()
 }

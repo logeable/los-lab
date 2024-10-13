@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use alloc::string::{String, ToString};
-use user::{console::Stdin, entry, exec, fork, print, println, waitpid};
+use user::{console::Stdin, entry, exec, fork, getpid, print, println, waitpid};
 
 entry!(main);
 
@@ -66,5 +66,5 @@ fn main() -> i32 {
 }
 
 fn prompt() {
-    print!(">> ");
+    print!("[{}] >> ", getpid());
 }

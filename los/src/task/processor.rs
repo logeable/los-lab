@@ -193,6 +193,14 @@ pub fn wait_child_exit(arg: WaitChildArg) -> error::Result<Option<ExitStatus>> {
     }
 }
 
+pub fn getpid() -> usize {
+    PROCESSOR
+        .lock()
+        .current()
+        .map(|v| v.lock().pid.pid())
+        .expect("current tcb must exist")
+}
+
 #[derive(Debug)]
 pub enum WaitChildArg {
     Any,
