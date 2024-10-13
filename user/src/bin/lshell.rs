@@ -31,7 +31,7 @@ fn main() -> i32 {
                     match fork().expect("fork must succeed") {
                         user::ForkProc::Child => {
                             if let Err(e) = exec(&program) {
-                                println!("exec {:?} failed: {}", program, e);
+                                panic!("exec {:?} failed: {}", program, e);
                             }
                         }
                         user::ForkProc::Parent(pid) => {
