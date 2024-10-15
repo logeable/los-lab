@@ -396,10 +396,34 @@ impl MemorySpace {
             error::KernelError::CreateMemorySpace(format!("create memory space failed: {:?}", e))
         })?;
 
-        forked_mem_space
-            .l3_page_table
-            .fork_from_page_table(&self.l3_page_table)
-            .map_err(|e| error::KernelError::Common(format!("fork page table failed: {:?}", e)))?;
+        for map_area in self.areas.iter() {
+            let new_map_area = MapArea::new(
+                map_area.vpn_range.start().into(),
+                map_area.vpn_range.end().into(),
+                map_area.map_type,
+                map_area.map_perm,
+            );
+
+            let vpn_range = new_map_area.vpn_range;
+            forked_mem_space.add_map_area(new_map_area).map_err(|err| {
+                error::KernelError::Common(format!("add map area failed: {:?}", err))
+            })?;
+
+            for vpn in vpn_range.into_iter() {
+                let src_ppn = self.page_table().translate_vpn(vpn)?.ppn();
+                let dst_ppn = forked_mem_space.page_table().translate_vpn(vpn)?.ppn();
+
+                unsafe {
+                    dst_ppn
+                        .get_bytes_array_mut()
+                        .copy_from_slice(src_ppn.get_bytes_array_mut());
+                }
+            }
+        }
+
+        forked_mem_space.add_trampoline_area().map_err(|err| {
+            error::KernelError::Common(format!("add trampoline area failed: {:?}", err))
+        })?;
 
         Ok(forked_mem_space)
     }
