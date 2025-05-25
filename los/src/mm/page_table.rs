@@ -104,7 +104,7 @@ impl PageTable {
     }
 
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: Flags) -> error::Result<()> {
-        let l3_ppn = self.root_ppn;
+        let mut l3_ppn = self.root_ppn;
         let l3_ptes = unsafe { l3_ppn.get_pte_array_mut() };
         let l3_index = vpn.get_level_3_index();
         let pte = &mut l3_ptes[l3_index];
@@ -122,7 +122,7 @@ impl PageTable {
             }
         }
 
-        let l2_ppn = pte.ppn();
+        let mut l2_ppn = pte.ppn();
         let l2_ptes = unsafe { l2_ppn.get_pte_array_mut() };
         let l2_index = vpn.get_level_2_index();
         let pte = &mut l2_ptes[l2_index];
@@ -140,7 +140,7 @@ impl PageTable {
             }
         }
 
-        let l1_ppn = pte.ppn();
+        let mut l1_ppn = pte.ppn();
         let l1_ptes = unsafe { l1_ppn.get_pte_array_mut() };
         let l1_index = vpn.get_level_1_index();
         let pte = &mut l1_ptes[l1_index];
@@ -162,7 +162,7 @@ impl PageTable {
     }
 
     fn find_pte_mut(&self, vpn: VirtPageNum) -> Option<*mut PageTableEntry> {
-        let ppn = self.root_ppn;
+        let mut ppn = self.root_ppn;
         let l3_ptes = unsafe { ppn.get_pte_array_mut() };
         let l3_index = vpn.get_level_3_index();
         let pte = l3_ptes[l3_index];
@@ -170,7 +170,7 @@ impl PageTable {
             return None;
         }
 
-        let ppn = pte.ppn();
+        let mut ppn = pte.ppn();
         let l2_ptes = unsafe { ppn.get_pte_array_mut() };
         let l2_index = vpn.get_level_2_index();
         let pte = l2_ptes[l2_index];
@@ -178,7 +178,7 @@ impl PageTable {
             return None;
         }
 
-        let ppn = pte.ppn();
+        let mut ppn = pte.ppn();
         let l1_ptes = unsafe { ppn.get_pte_array_mut() };
         let l1_index = vpn.get_level_1_index();
         let pte = &mut l1_ptes[l1_index];
@@ -190,7 +190,7 @@ impl PageTable {
     }
 
     pub fn satp(&self) -> usize {
-        (8 << 60) | (0 << 44) | self.root_ppn.0
+        (8 << 60) | self.root_ppn.0
     }
 
     pub fn from_satp(satp: usize) -> Self {
@@ -204,8 +204,7 @@ impl PageTable {
         self.find_pte_mut(vpn)
             .map(|pte| unsafe { *pte })
             .ok_or(error::KernelError::PteNotFound(format!(
-                "find pte by vpn failed, vpn: {:?}",
-                vpn
+                "find pte by vpn failed, vpn: {vpn:?}"
             )))
     }
 
@@ -232,20 +231,20 @@ impl PageTable {
         Ok(s)
     }
 
-    pub fn translate_bytes(&self, ptr: VirtAddr, len: usize) -> error::Result<Vec<&mut [u8]>> {
+    pub fn translate_bytes(&mut self, ptr: VirtAddr, len: usize) -> error::Result<Vec<&mut [u8]>> {
         let end_va = ptr + len;
 
         let mut result: Vec<&'static mut [u8]> = Vec::new();
 
         let mut addr = ptr;
         while addr < end_va {
-            let addr_va = VirtAddr::from(addr);
+            let addr_va = addr;
 
             let page_vpn = addr_va.floor_vpn();
             let page_ppn = self
                 .translate_vpn(page_vpn)
                 .map_err(|e| {
-                    error::KernelError::Translate(format!("translate start vpn failed: {:?}", e))
+                    error::KernelError::Translate(format!("translate start vpn failed: {e:?}"))
                 })?
                 .ppn();
 
@@ -291,7 +290,7 @@ impl PageTable {
         let mut next_level_src_ppns = Vec::new();
         let mut next_level_dst_ppns = Vec::new();
 
-        for (src_ppn, dst_ppn) in src_ppns.iter().zip(dst_ppns) {
+        for (src_ppn, dst_ppn) in src_ppns.iter_mut().zip(dst_ppns) {
             let src_ptes = unsafe { src_ppn.get_pte_array_mut() };
             let dst_ptes = unsafe { dst_ppn.get_pte_array_mut() };
 
@@ -323,15 +322,15 @@ impl PageTable {
         src_ppns: &mut [PhysPageNum],
         dst_ppns: &mut [PhysPageNum],
     ) -> error::Result<()> {
-        for (src_ppn, dst_ppn) in src_ppns.iter().zip(dst_ppns) {
+        for (src_ppn, dst_ppn) in src_ppns.iter_mut().zip(dst_ppns) {
             let src_ptes = unsafe { src_ppn.get_pte_array_mut() };
             let dst_ptes = unsafe { dst_ppn.get_pte_array_mut() };
 
             for (src_pte, dst_pte) in src_ptes.iter_mut().zip(dst_ptes) {
                 if src_pte.is_valid() {
                     match frame_allocator::alloc() {
-                        Some(frame) => {
-                            let src_ppn = src_pte.ppn();
+                        Some(mut frame) => {
+                            let mut src_ppn = src_pte.ppn();
 
                             let dst = unsafe { frame.ppn.get_bytes_array_mut() };
                             let src = unsafe { src_ppn.get_bytes_array_mut() };

@@ -31,20 +31,19 @@ impl PidAllocator {
         }
 
         if self.current == self.end {
-            return None;
+            None
         } else {
             let pid = self.current;
             self.current += 1;
-            return Some(Pid { pid });
+            Some(Pid { pid })
         }
     }
 
     fn dealloc(&mut self, pid: usize) {
-        assert!(pid < self.current, "Pid {} has not been allocated!", pid);
+        assert!(pid < self.current, "Pid {pid} has not been allocated!");
         assert!(
-            !self.recycled.iter().any(|&v| v == pid),
-            "Pid {} has been deallocated!",
-            pid
+            !self.recycled.contains(&pid),
+            "Pid {pid} has been deallocated!"
         );
         self.recycled.push(pid);
     }

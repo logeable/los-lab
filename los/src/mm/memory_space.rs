@@ -63,8 +63,7 @@ impl MapArea {
 
             if let Err(err) = page_table.map(vpn, ppn, self.map_perm.into()) {
                 return Err(error::KernelError::PagetableMap(format!(
-                    "page table map failed: {:?}",
-                    err
+                    "page table map failed: {err:?}"
                 )));
             }
         }
@@ -122,8 +121,7 @@ impl MemorySpace {
                 areas: Vec::new(),
             }),
             Err(err) => Err(error::KernelError::CreatePagetable(format!(
-                "create pagetable for bare memory space failed: {:?}",
-                err
+                "create pagetable for bare memory space failed: {err:?}"
             ))),
         }
     }
@@ -203,13 +201,13 @@ impl MemorySpace {
 
     pub fn new_elf(elf_data: &[u8]) -> error::Result<(Self, usize, usize)> {
         let mut mem_space = Self::new_bare().map_err(|e| {
-            error::KernelError::CreateMemorySpace(format!("create memory space failed: {:?}", e))
+            error::KernelError::CreateMemorySpace(format!("create memory space failed: {e:?}"))
         })?;
 
         let mut max_vpn = VirtPageNum(0);
 
         let file = elf::ElfBytes::<AnyEndian>::minimal_parse(elf_data)
-            .map_err(|e| error::KernelError::ParseELF(format!("parse elf failed: {:?}", e)))?;
+            .map_err(|e| error::KernelError::ParseELF(format!("parse elf failed: {e:?}")))?;
         for segment in file
             .segments()
             .ok_or(error::KernelError::ELFProgramHeader("".to_string()))?
@@ -217,7 +215,7 @@ impl MemorySpace {
             .filter(|v| v.p_type == elf::abi::PT_LOAD)
         {
             let data = file.segment_data(&segment).map_err(|e| {
-                error::KernelError::ELFSegmentData(format!("read segment data failed: {:?}", e))
+                error::KernelError::ELFSegmentData(format!("read segment data failed: {e:?}"))
             })?;
             let start_va = VirtAddr(segment.p_vaddr as usize);
             assert!(start_va.is_page_aligned());
@@ -249,7 +247,7 @@ impl MemorySpace {
         }
 
         mem_space.add_trampoline_area().map_err(|e| {
-            error::KernelError::AddMapArea(format!("add trampoline map area failed: {:?}", e))
+            error::KernelError::AddMapArea(format!("add trampoline map area failed: {e:?}"))
         })?;
 
         let trap_context_start_va = trap_context_va();
@@ -260,7 +258,7 @@ impl MemorySpace {
                 MapPermission::R | MapPermission::W,
             )
             .map_err(|e| {
-                error::KernelError::AddMapArea(format!("add trap context map area failed: {:?}", e))
+                error::KernelError::AddMapArea(format!("add trap context map area failed: {e:?}"))
             })?;
 
         let user_stack_start_va = VirtPageNum(max_vpn.0 + GUARD_PAGE_COUNT).into();
@@ -272,7 +270,7 @@ impl MemorySpace {
                 MapPermission::U | MapPermission::R | MapPermission::W,
             )
             .map_err(|e| {
-                error::KernelError::AddMapArea(format!("add user stack map area failed: {:?}", e))
+                error::KernelError::AddMapArea(format!("add user stack map area failed: {e:?}"))
             })?;
         Ok((
             mem_space,
@@ -308,10 +306,7 @@ impl MemorySpace {
 
     fn add_map_area(&mut self, mut map_area: MapArea) -> error::Result<()> {
         if let Err(err) = map_area.map(&mut self.l3_page_table) {
-            return Err(error::KernelError::MapArea(format!(
-                "map failed: {:?}",
-                err
-            )));
+            return Err(error::KernelError::MapArea(format!("map failed: {err:?}")));
         }
         self.areas.push(map_area);
 
@@ -328,7 +323,7 @@ impl MemorySpace {
         data.chunks(PAGE_SIZE)
             .zip(vpn_range)
             .for_each(|(page_data, vpn)| {
-                let ppn = self
+                let mut ppn = self
                     .l3_page_table
                     .translate_vpn(vpn)
                     .expect("translate vpn in when adding map data area failed")
@@ -393,7 +388,7 @@ impl MemorySpace {
 
     pub fn fork(&self) -> error::Result<Self> {
         let mut forked_mem_space = Self::new_bare().map_err(|e| {
-            error::KernelError::CreateMemorySpace(format!("create memory space failed: {:?}", e))
+            error::KernelError::CreateMemorySpace(format!("create memory space failed: {e:?}"))
         })?;
 
         for map_area in self.areas.iter() {
@@ -406,12 +401,12 @@ impl MemorySpace {
 
             let vpn_range = new_map_area.vpn_range;
             forked_mem_space.add_map_area(new_map_area).map_err(|err| {
-                error::KernelError::Common(format!("add map area failed: {:?}", err))
+                error::KernelError::Common(format!("add map area failed: {err:?}"))
             })?;
 
             for vpn in vpn_range.into_iter() {
-                let src_ppn = self.page_table().translate_vpn(vpn)?.ppn();
-                let dst_ppn = forked_mem_space.page_table().translate_vpn(vpn)?.ppn();
+                let mut src_ppn = self.page_table().translate_vpn(vpn)?.ppn();
+                let mut dst_ppn = forked_mem_space.page_table().translate_vpn(vpn)?.ppn();
 
                 unsafe {
                     dst_ppn
@@ -422,14 +417,14 @@ impl MemorySpace {
         }
 
         forked_mem_space.add_trampoline_area().map_err(|err| {
-            error::KernelError::Common(format!("add trampoline area failed: {:?}", err))
+            error::KernelError::Common(format!("add trampoline area failed: {err:?}"))
         })?;
 
         Ok(forked_mem_space)
     }
 
     pub fn trap_context_mut_ptr<T>(&mut self) -> *mut T {
-        let trap_context_ppn = self
+        let mut trap_context_ppn = self
             .page_table()
             .translate_vpn(trap_context_va().floor_vpn())
             .expect("translate trap context va must succeed")
@@ -470,8 +465,7 @@ impl KernelStack {
             .add_app_kernel_stack_area(pid.pid())
             .map_err(|err| {
                 error::KernelError::AddAppKernelStackArea(format!(
-                    "add app kernel stack area failed: {:?}",
-                    err
+                    "add app kernel stack area failed: {err:?}"
                 ))
             })?;
 

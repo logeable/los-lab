@@ -69,7 +69,7 @@ impl BlockCacheManager {
             .find(|(cid, _cache)| *cid == id)
             .map(|(_id, cache)| cache)
         {
-            return Ok(cache.clone());
+            Ok(cache.clone())
         } else {
             if self.caches.len() == BLOCK_CACHE_COUNT {
                 if let Some(idx) = self
@@ -88,6 +88,12 @@ impl BlockCacheManager {
             self.caches.push_back((id, cache.clone()));
             Ok(cache)
         }
+    }
+}
+
+impl Default for BlockCacheManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

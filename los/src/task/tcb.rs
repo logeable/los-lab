@@ -48,7 +48,7 @@ impl TaskControlBlock {
 
     pub fn get_trap_context_ptr(&self) -> *mut TrapContext {
         let trap_context_va = mm::trap_context_va();
-        let trap_context_ppn = self
+        let mut trap_context_ppn = self
             .mem_space
             .page_table()
             .translate_vpn(trap_context_va.floor_vpn())

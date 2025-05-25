@@ -23,7 +23,7 @@ pub fn sys_gettimeofday(tp: *mut TimeVal, _tzp: usize) -> isize {
         }
         Err(err) => {
             println!("[TIME] translate failed: {:?}", err);
-            return -1;
+            -1
         }
     }
 }

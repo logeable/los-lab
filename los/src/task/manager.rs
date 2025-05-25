@@ -50,8 +50,7 @@ impl TaskManager {
             .app_loader
             .load_app_elf(name)
             .ok_or(error::KernelError::LoadAppELF(format!(
-                "load app ELF failed: {}",
-                name
+                "load app ELF failed: {name}"
             )))?;
         let (mut mem_space, user_sp, entry) =
             mm::build_app_mem_space(elf_data).expect("build app mem space must succeed");
@@ -91,10 +90,10 @@ impl TaskManager {
             let context = TaskContext::init(trap_return as usize, kernel_stack.get_sp());
 
             let mut mem_space = parent_tcb.mem_space.fork().map_err(|e| {
-                error::KernelError::Common(format!("fork memory space failed: {:?}", e))
+                error::KernelError::Common(format!("fork memory space failed: {e:?}"))
             })?;
 
-            let current_trap_context = unsafe { (&*parent_tcb.get_trap_context_ptr()).clone() };
+            let current_trap_context = unsafe { (*parent_tcb.get_trap_context_ptr()).clone() };
             let mut trap_context = TrapContext {
                 kernel_sp: kernel_stack.get_sp(),
                 ..current_trap_context
@@ -128,8 +127,7 @@ impl TaskManager {
             .app_loader
             .load_app_elf(path)
             .ok_or(error::KernelError::LoadAppELF(format!(
-                "load app ELF failed: {}",
-                path
+                "load app ELF failed: {path}"
             )))?;
         let (mut mem_space, user_sp, entry) =
             mm::build_app_mem_space(elf_data).expect("build app mem space must succeed");

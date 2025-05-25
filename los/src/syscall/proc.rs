@@ -18,7 +18,7 @@ pub fn sys_fork() -> isize {
         Ok(pid) => pid as isize,
         Err(err) => {
             println!("[PROC] sys fork failed: {:?}", err);
-            return -1;
+            -1
         }
     }
 }

@@ -28,7 +28,7 @@ pub fn init(mem_range: &Range<usize>) {
 }
 
 pub fn alloc() -> Option<Frame> {
-    FRAME_ALLOCATOR.lock().alloc().map(|ppn| Frame::new(ppn))
+    FRAME_ALLOCATOR.lock().alloc().map(Frame::new)
 }
 
 pub fn dealloc(ppn: PhysPageNum) {
@@ -81,7 +81,7 @@ impl StackFrameAllocator {
             ppn.0
         );
         assert!(
-            !self.recycled.iter().any(|&v| v == ppn.0),
+            !self.recycled.contains(&ppn.0),
             "Frame ppn={:#x} has been deallocated!",
             ppn.0
         );

@@ -12,10 +12,8 @@ fn main() -> i32 {
                 exec(shell).expect("exec shell must succeed");
             }
             user::ForkProc::Parent(_pid) => loop {
-                loop {
-                    let wr = wait().expect("wait must succeed");
-                    println!("child {} exited with error code: {}", wr.pid, wr.exit_code);
-                }
+                let wr = wait().expect("wait must succeed");
+                println!("child {} exited with error code: {}", wr.pid, wr.exit_code);
             },
         },
         Err(err) => panic!("fork failed: {:?}", err),

@@ -59,7 +59,7 @@ pub fn read(fd: usize, buf: &mut [u8]) -> Result<usize> {
     let ret = syscall::sys_read(fd, buf);
 
     if ret < 0 {
-        Err(Error::SyscallError(ret))
+        Err(Error::Syscall(ret))
     } else {
         Ok(ret as usize)
     }
@@ -89,7 +89,7 @@ pub fn gettimeofday() -> Result<TimeVal> {
 
     let ret = syscall::sys_gettimeofday(&mut t, 0);
     if ret != 0 {
-        return Err(Error::SyscallError(ret));
+        return Err(Error::Syscall(ret));
     }
 
     Ok(t)
@@ -103,7 +103,7 @@ pub enum ForkProc {
 pub fn fork() -> Result<ForkProc> {
     let ret = syscall::sys_fork();
     if ret < 0 {
-        return Err(Error::SyscallError(ret));
+        return Err(Error::Syscall(ret));
     }
 
     if ret == 0 {
@@ -127,7 +127,7 @@ pub fn exec(path: &str) -> Result<()> {
 
     let ret = syscall::sys_exec(cstr);
     if ret < 0 {
-        return Err(Error::SyscallError(ret));
+        return Err(Error::Syscall(ret));
     }
 
     Ok(())
@@ -145,7 +145,7 @@ pub fn wait() -> Result<ExitStatus> {
     loop {
         let ret = syscall::sys_wait(-1, &mut exit_code);
         if ret < 0 {
-            return Err(Error::SyscallError(ret));
+            return Err(Error::Syscall(ret));
         } else if ret == 0 {
             sched_yield();
         } else {
@@ -161,7 +161,7 @@ pub fn waitpid(pid: usize) -> Result<ExitStatus> {
     loop {
         let ret = syscall::sys_wait(pid as isize, &mut exit_code);
         if ret < 0 {
-            return Err(Error::SyscallError(ret));
+            return Err(Error::Syscall(ret));
         } else if ret == 0 {
             sched_yield();
         } else {

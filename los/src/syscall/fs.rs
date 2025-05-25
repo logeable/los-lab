@@ -65,7 +65,7 @@ pub fn sys_write(fd: usize, data: *const u8, len: usize) -> isize {
                 }
                 Err(err) => {
                     println!("[FS] translate failed: {:?}", err);
-                    return -1;
+                    -1
                 }
             }
         }

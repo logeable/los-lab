@@ -16,7 +16,7 @@ impl PhysAddr {
     }
 
     pub fn ceil_ppn(&self) -> PhysPageNum {
-        PhysPageNum((self.0 + PAGE_SIZE - 1) / PAGE_SIZE)
+        PhysPageNum(self.0.div_ceil(PAGE_SIZE))
     }
 
     pub fn offset(self, offset: usize) -> Self {
@@ -110,19 +110,19 @@ impl PhysPageNum {
         }
     }
 
-    pub unsafe fn get_bytes_array_mut(&self) -> &mut [u8] {
+    pub unsafe fn get_bytes_array_mut(&mut self) -> &mut [u8] {
         let start = PhysAddr::from(*self).0;
         let end = start + PAGE_SIZE;
         unsafe { core::slice::from_raw_parts_mut(start as *mut u8, end - start) }
     }
 
-    pub unsafe fn get_pte_array_mut(&self) -> &mut [PageTableEntry] {
+    pub unsafe fn get_pte_array_mut(&mut self) -> &mut [PageTableEntry] {
         let start = PhysAddr::from(*self).0;
         let len = PAGE_SIZE / mem::size_of::<PageTableEntry>();
         unsafe { core::slice::from_raw_parts_mut(start as *mut PageTableEntry, len) }
     }
 
-    pub unsafe fn get_mut<T>(&self) -> &mut T {
+    pub unsafe fn get_mut<T>(&mut self) -> &mut T {
         let start = PhysAddr::from(*self).0;
         unsafe { &mut *(start as *mut T) }
     }

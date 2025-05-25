@@ -25,7 +25,7 @@ pub fn build(user_path: &str, release: bool) -> anyhow::Result<()> {
                 String::from_utf8(output.stderr).unwrap()
             );
         }
-        println!("build {} done", target);
+        println!("build {target} done");
     }
 
     Ok(())
@@ -64,7 +64,7 @@ pub fn asm(user_path: &str, app_asm_path: &str, release: bool) -> anyhow::Result
         .collect();
 
     for name in bins.iter() {
-        println!("{:?}", name);
+        println!("{name:?}");
     }
 
     gen_app_asm(bins, app_asm_path).context("gen app asm failed")?;

@@ -184,10 +184,10 @@ pub fn wait_child_exit(arg: WaitChildArg) -> error::Result<Option<ExitStatus>> {
                 .get_exited_code()
                 .expect("get exited code must succeed");
 
-            return Ok(Some(ExitStatus {
+            Ok(Some(ExitStatus {
                 pid: exited_child.pid.pid(),
                 exit_code: exited_code,
-            }));
+            }))
         }
         None => Ok(None),
     }
@@ -212,7 +212,7 @@ impl WaitChildArg {
         Ok(match pid {
             -1 => Self::Any,
             pid @ 1.. => Self::One(pid as usize),
-            _ => return Err(error::KernelError::Common(format!("invalid pid: {}", pid))),
+            _ => return Err(error::KernelError::Common(format!("invalid pid: {pid}"))),
         })
     }
 }
